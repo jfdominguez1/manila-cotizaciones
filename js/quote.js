@@ -121,13 +121,17 @@ function populateFromData(data, isCopy = false) {
     document.getElementById('client-name').value = data.client.name ?? '';
     document.getElementById('client-country').value = data.client.country ?? '';
     document.getElementById('client-contact').value = data.client.contact ?? '';
+    document.getElementById('client-dest-port').value = data.client.dest_port ?? '';
   }
   if (data.incoterm) document.getElementById('incoterm-select').value = data.incoterm;
+  if (data.origin_port) document.getElementById('origin-port').value = data.origin_port;
+  if (data.transport_type) document.getElementById('transport-type').value = data.transport_type;
   if (data.volume_kg) document.getElementById('volume-kg').value = data.volume_kg;
   if (data.num_shipments) document.getElementById('num-shipments').value = data.num_shipments;
   if (data.yield_pct) document.getElementById('yield-pct').value = data.yield_pct;
   if (data.valid_days) document.getElementById('valid-days').value = data.valid_days;
   if (data.lead_time) document.getElementById('lead-time').value = data.lead_time;
+  if (data.client_comments) document.getElementById('client-comments').value = data.client_comments;
   if (data.notes) document.getElementById('quote-notes').value = data.notes;
   if (data.margin_pct) document.getElementById('margin-pct').value = data.margin_pct;
 
@@ -173,24 +177,21 @@ function populateIncoterms() {
 // EVENTOS DEL PANEL
 // ============================================================
 function bindPanelEvents() {
-  // Brand switcher
   document.querySelectorAll('.brand-btn').forEach(btn => {
     btn.addEventListener('click', () => setBrand(btn.dataset.brand));
   });
 
-  // Product
   document.getElementById('product-select').addEventListener('change', onProductChange);
 
-  // Recalc on any panel input change
   const panelInputs = ['volume-kg', 'num-shipments', 'yield-pct', 'margin-pct'];
   panelInputs.forEach(id => {
     document.getElementById(id).addEventListener('input', recalculate);
   });
 
-  // Confirm & save
   document.getElementById('btn-confirm').addEventListener('click', confirmQuote);
   document.getElementById('btn-save-draft').addEventListener('click', saveDraft);
-  document.getElementById('btn-print').addEventListener('click', printQuote);
+  document.getElementById('btn-print-client').addEventListener('click', () => printQuote('client'));
+  document.getElementById('btn-print-internal').addEventListener('click', () => printQuote('internal'));
 }
 
 function setBrand(brandId) {
@@ -211,6 +212,7 @@ function onProductChange() {
   const thumbWrap = document.getElementById('product-thumb-wrap');
   if (p && p.photo) {
     thumbWrap.innerHTML = `<img class="product-thumb" src="${p.photo}" alt="${p.name}">`;
+    thumbWrap.className = '';
   } else {
     thumbWrap.innerHTML = '<span>📦</span>';
     thumbWrap.className = 'product-thumb-placeholder';
@@ -220,7 +222,29 @@ function onProductChange() {
     document.getElementById('yield-pct').value = p.default_yield_pct;
   }
 
+  // Renderizar cert picker
+  renderCertPicker(p);
+
   recalculate();
+}
+
+function renderCertPicker(product) {
+  const wrap = document.getElementById('cert-picker-wrap');
+  const container = document.getElementById('cert-picker');
+  const certs = product?.certifications ?? [];
+
+  if (!certs.length) { wrap.style.display = 'none'; return; }
+
+  wrap.style.display = '';
+  container.innerHTML = '';
+  certs.forEach(certId => {
+    const cert = CERTIFICATIONS[certId];
+    if (!cert) return;
+    const label = document.createElement('label');
+    label.innerHTML = `<input type="checkbox" class="cert-pick" value="${certId}" checked> ${cert.name}`;
+    label.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;padding:5px 10px;border:1px solid var(--gray-200);border-radius:4px;';
+    container.appendChild(label);
+  });
 }
 
 // ============================================================
@@ -572,15 +596,17 @@ function recalculate() {
 
   // Precio destacado
   if (pricePerKg > 0) {
-    document.getElementById('price-kg').textContent = `USD $${pricePerKg.toFixed(2)}/kg`;
-    document.getElementById('price-lb').textContent = `USD $${pricePerLb.toFixed(2)}/lb`;
+    document.getElementById('price-kg').textContent = `$${pricePerKg.toFixed(2)}/kg`;
+    document.getElementById('price-lb').textContent = `$${pricePerLb.toFixed(2)}/lb`;
     document.getElementById('btn-confirm').disabled = false;
-    document.getElementById('btn-print').disabled = false;
+    document.getElementById('btn-print-client').disabled = false;
+    document.getElementById('btn-print-internal').disabled = false;
   } else {
     document.getElementById('price-kg').textContent = 'USD —';
     document.getElementById('price-lb').textContent = '— /lb';
     document.getElementById('btn-confirm').disabled = true;
-    document.getElementById('btn-print').disabled = true;
+    document.getElementById('btn-print-client').disabled = true;
+    document.getElementById('btn-print-internal').disabled = true;
   }
 
   return { totalCostPerKg, commPerKg, pricePerKg, pricePerLb, marginPct };
@@ -645,13 +671,16 @@ function renderSummary(layers, totalCost, commPerKg, marginPct, pricePerKg, volu
 // ============================================================
 // GUARDAR / CONFIRMAR
 // ============================================================
+function getSelectedCerts() {
+  return [...document.querySelectorAll('.cert-pick:checked')].map(cb => cb.value);
+}
+
 function buildQuoteObject(status) {
   const calc = recalculate();
   const pricePerKg = parseFloat(document.getElementById('price-kg').textContent.replace(/[^0-9.]/g, '')) || 0;
   const volumeKg = parseFloat(document.getElementById('volume-kg').value) || 0;
   const numShipments = parseInt(document.getElementById('num-shipments').value) || 1;
 
-  // Snapshot de capas con cost_per_kg_calc guardado
   const costLayersSnapshot = layers.map(l => ({
     layer_id: l.id,
     layer_name: l.name,
@@ -671,12 +700,17 @@ function buildQuoteObject(status) {
     client: {
       name: document.getElementById('client-name').value.trim(),
       country: document.getElementById('client-country').value.trim(),
-      contact: document.getElementById('client-contact').value.trim()
+      contact: document.getElementById('client-contact').value.trim(),
+      dest_port: document.getElementById('client-dest-port').value.trim()
     },
     incoterm: document.getElementById('incoterm-select').value,
+    origin_port: document.getElementById('origin-port').value.trim(),
+    transport_type: document.getElementById('transport-type').value,
     valid_days: parseInt(document.getElementById('valid-days').value) || 15,
     lead_time: document.getElementById('lead-time').value.trim(),
+    client_comments: document.getElementById('client-comments').value.trim(),
     notes: document.getElementById('quote-notes').value.trim(),
+    selected_certs: getSelectedCerts(),
 
     product: currentProduct ? { ...currentProduct } : null,
     volume_kg: volumeKg,
@@ -733,61 +767,97 @@ async function confirmQuote() {
 // ============================================================
 // PDF / PRINT
 // ============================================================
-function printQuote() {
+function printQuote(mode) {
   const brand = BRANDS[currentBrand];
   const priceKg = parseFloat(document.getElementById('price-kg').textContent.replace(/[^0-9.]/g, '')) || 0;
   const priceLb = priceKg / 2.20462;
   const incoterm = document.getElementById('incoterm-select').value;
-  const today = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' });
-  const validDays = document.getElementById('valid-days').value;
+  const originPort = document.getElementById('origin-port').value.trim();
+  const transportType = document.getElementById('transport-type').value;
+  const today = new Date().toLocaleDateString('en-US', { day: '2-digit', month: 'long', year: 'numeric' });
+  const validDays = parseInt(document.getElementById('valid-days').value) || 15;
+  const validUntil = new Date(Date.now() + validDays * 86400000)
+    .toLocaleDateString('en-US', { day: '2-digit', month: 'long', year: 'numeric' });
 
-  // PDF page accent color
+  // Accent color en todas las páginas
   document.querySelectorAll('.pdf-page').forEach(p => {
     p.style.setProperty('--pdf-accent', brand.accent);
   });
 
-  // Página 1 — cliente
+  // ---- Página cliente ----
   document.getElementById('pdf-logo').src = brand.logo;
   document.getElementById('pdf-quote-number').textContent = currentQuoteNumber;
   document.getElementById('pdf-date').textContent = today;
-  document.getElementById('pdf-valid').textContent = `Válida por ${validDays} días`;
-  document.getElementById('pdf-incoterm').textContent = incoterm;
-  document.getElementById('pdf-price-main').textContent = `USD $${priceKg.toFixed(2)}/kg`;
-  document.getElementById('pdf-price-lb-text').textContent = `USD $${priceLb.toFixed(2)}/lb`;
-  document.getElementById('pdf-client').textContent = document.getElementById('client-name').value;
-  document.getElementById('pdf-country').textContent = document.getElementById('client-country').value;
-  document.getElementById('pdf-leadtime').textContent = document.getElementById('lead-time').value;
-  document.getElementById('pdf-volume').textContent =
-    `${(parseFloat(document.getElementById('volume-kg').value) || 0).toLocaleString()} kg`;
+  document.getElementById('pdf-valid').textContent = `Valid ${validDays} days`;
 
-  if (currentProduct) {
-    document.getElementById('pdf-product-name').textContent = currentProduct.name ?? '';
-    document.getElementById('pdf-product-spec').textContent =
-      [currentProduct.specs?.trim_cut, currentProduct.specs?.caliber].filter(Boolean).join(' — ');
-    if (currentProduct.photo) {
-      const img = document.getElementById('pdf-product-img');
-      img.src = currentProduct.photo;
-      img.style.display = '';
-    }
+  // Incoterm + origen en el bloque de precio
+  const incotermLabel = originPort
+    ? `${incoterm} — ${originPort}`
+    : incoterm;
+  document.getElementById('pdf-incoterm-label').textContent = incotermLabel;
+  document.getElementById('pdf-price-main').textContent = `$${priceKg.toFixed(2)}`;
+  document.getElementById('pdf-price-lb-val').textContent = `$${priceLb.toFixed(2)}`;
 
-    // Certs
-    const certsEl = document.getElementById('pdf-certs');
-    certsEl.innerHTML = '';
-    (currentProduct.certifications ?? []).forEach(certId => {
-      const cert = CERTIFICATIONS[certId];
-      if (!cert) return;
-      const el = document.createElement('div');
-      el.className = 'pdf-cert-item';
-      if (cert.logo) {
-        el.innerHTML = `<img src="${cert.logo}" alt="${cert.name}"> <span>${cert.name}</span>`;
-      } else {
-        el.innerHTML = `<span class="pdf-cert-badge">${certId.toUpperCase()}</span> <span>${cert.name}</span>`;
-      }
-      certsEl.appendChild(el);
-    });
+  // Info grid
+  document.getElementById('pdf-client-val').textContent =
+    [document.getElementById('client-name').value,
+     document.getElementById('client-contact').value].filter(Boolean).join(' · ');
+  document.getElementById('pdf-dest-val').textContent =
+    document.getElementById('client-dest-port').value || document.getElementById('client-country').value;
+  document.getElementById('pdf-origin-label').textContent =
+    incoterm ? `${incoterm} Point` : 'Port of Origin';
+  document.getElementById('pdf-origin-val').textContent = originPort || 'Buenos Aires, Argentina';
+  document.getElementById('pdf-transport-val').textContent = transportType || '—';
+  const volumeKg = parseFloat(document.getElementById('volume-kg').value) || 0;
+  const numShip = parseInt(document.getElementById('num-shipments').value) || 1;
+  document.getElementById('pdf-volume-val').textContent =
+    `${volumeKg.toLocaleString()} kg — ${numShip} shipment${numShip > 1 ? 's' : ''}`;
+  document.getElementById('pdf-leadtime-val').textContent = document.getElementById('lead-time').value || '—';
+  document.getElementById('pdf-validuntil-val').textContent = validUntil;
+
+  // Foto producto
+  const photoWrap = document.getElementById('pdf-photo-wrap');
+  const productImg = document.getElementById('pdf-product-img');
+  if (currentProduct?.photo) {
+    productImg.src = currentProduct.photo;
+    photoWrap.style.display = '';
+  } else {
+    photoWrap.style.display = 'none';
   }
 
-  // Página 2 — interna
+  // Nombre y specs
+  document.getElementById('pdf-product-name').textContent = currentProduct?.name ?? '';
+  document.getElementById('pdf-product-spec').textContent =
+    [currentProduct?.specs?.trim_cut, currentProduct?.specs?.caliber].filter(Boolean).join(' — ');
+
+  // Certificaciones (solo las seleccionadas)
+  const selectedCerts = getSelectedCerts();
+  const certsEl = document.getElementById('pdf-certs');
+  certsEl.innerHTML = '';
+  selectedCerts.forEach(certId => {
+    const cert = CERTIFICATIONS[certId];
+    if (!cert) return;
+    const el = document.createElement('div');
+    el.className = 'pdf-cert-item';
+    if (cert.logo) {
+      el.innerHTML = `<img src="${cert.logo}" alt="${cert.name}"><span class="pdf-cert-name">${cert.name}</span>`;
+    } else {
+      el.innerHTML = `<span class="pdf-cert-badge">${certId.toUpperCase()}</span><span class="pdf-cert-name">${cert.name}</span>`;
+    }
+    certsEl.appendChild(el);
+  });
+
+  // Comentarios para el cliente
+  const comments = document.getElementById('client-comments').value.trim();
+  const commentsEl = document.getElementById('pdf-comments');
+  if (comments) {
+    document.getElementById('pdf-comments-text').textContent = comments;
+    commentsEl.style.display = '';
+  } else {
+    commentsEl.style.display = 'none';
+  }
+
+  // ---- Página interna ----
   document.getElementById('pdf-int-quote-number').textContent = currentQuoteNumber;
   buildInternalTable();
 
@@ -797,9 +867,16 @@ function printQuote() {
   document.getElementById('pdf-sum-price').textContent = `$${priceKg.toFixed(2)}`;
   document.getElementById('pdf-sum-price-lb').textContent = `$${priceLb.toFixed(2)}/lb`;
   document.getElementById('pdf-meta-footer').textContent =
-    `Generada por: ${currentUser.email} — ${new Date().toLocaleString('es-AR')} — USO INTERNO MANILA S.A.`;
+    `Created by: ${currentUser.email} — ${new Date().toLocaleString('es-AR')} — INTERNAL USE ONLY`;
 
-  window.print();
+  // Aplicar modo de impresión
+  document.body.classList.remove('print-client', 'print-internal');
+  document.body.classList.add(mode === 'client' ? 'print-client' : 'print-internal');
+
+  setTimeout(() => {
+    window.print();
+    setTimeout(() => document.body.classList.remove('print-client', 'print-internal'), 500);
+  }, 100);
 }
 
 function buildInternalTable() {

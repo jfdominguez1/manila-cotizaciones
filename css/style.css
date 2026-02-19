@@ -710,6 +710,21 @@ body {
 .commission-grid select:focus { border-color: var(--accent); }
 
 /* ============================================================
+   PANEL: precio ambas unidades + cert picker
+   ============================================================ */
+.price-both {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+.price-both .price-kg,
+.price-both .price-lb { font-size: 17px; font-weight: 700; }
+.price-both .price-sep { font-size: 14px; opacity: 0.5; }
+.price-highlight .price-label { font-size: 11px; opacity: 0.8; margin-bottom: 4px; }
+
+/* ============================================================
    PDF / PRINT
    ============================================================ */
 .pdf-container { display: none; }
@@ -720,10 +735,15 @@ body {
   body > *:not(.pdf-container) { display: none !important; }
   .pdf-container { display: block !important; }
 
+  /* Ocultar solo la página interna cuando imprimimos solo cliente */
+  body.print-client .pdf-internal-page { display: none !important; }
+  /* Ocultar solo la página cliente cuando imprimimos solo internos */
+  body.print-internal .pdf-client-page { display: none !important; }
+
   .pdf-page {
     width: 210mm;
     min-height: 297mm;
-    padding: 14mm 16mm;
+    padding: 12mm 14mm 22mm;
     background: #fff;
     page-break-after: always;
     font-family: 'Inter', sans-serif;
@@ -733,63 +753,126 @@ body {
   }
   .pdf-page:last-child { page-break-after: auto; }
 
-  /* Página 1 — cliente */
+  /* ---- HEADER ---- */
   .pdf-header {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
-    margin-bottom: 10mm;
-    border-bottom: 2px solid var(--pdf-accent, #2F2C2B);
-    padding-bottom: 6mm;
+    margin-bottom: 7mm;
+    border-bottom: 3px solid var(--pdf-accent, #2F2C2B);
+    padding-bottom: 5mm;
   }
-  .pdf-header .pdf-logo { height: 36px; }
-  .pdf-header .pdf-meta { text-align: right; }
-  .pdf-header .pdf-quote-number { font-size: 15pt; font-weight: 700; }
-  .pdf-header .pdf-date { font-size: 8pt; color: #888; margin-top: 2px; }
-  .pdf-header .pdf-valid { font-size: 8pt; color: #888; }
+  .pdf-logo {
+    height: 56px;   /* 4-5x más grande que antes */
+    max-width: 80mm;
+    object-fit: contain;
+    object-position: left center;
+  }
+  .pdf-header-right { text-align: right; }
+  .pdf-quote-number { font-size: 14pt; font-weight: 800; color: var(--pdf-accent, #2F2C2B); }
+  .pdf-date { font-size: 8pt; color: #888; margin-top: 1mm; }
+  .pdf-valid { font-size: 8pt; color: #888; }
 
-  .pdf-product-row {
-    display: flex;
-    gap: 8mm;
-    margin-bottom: 8mm;
+  /* ---- FOTO PRODUCTO ---- */
+  .pdf-photo-wrap {
+    width: 100%;
+    height: 52mm;
+    margin-bottom: 5mm;
+    border-radius: 6px;
+    overflow: hidden;
   }
-  .pdf-product-img {
-    width: 60mm;
-    height: 45mm;
+  .pdf-product-photo {
+    width: 100%;
+    height: 100%;
     object-fit: cover;
-    border-radius: 4px;
+    object-position: center;
+    display: block;
   }
-  .pdf-product-info { flex: 1; }
-  .pdf-product-name { font-size: 16pt; font-weight: 700; margin-bottom: 2mm; }
-  .pdf-product-spec { font-size: 8.5pt; color: #555; margin-bottom: 1mm; }
 
+  /* ---- NOMBRE PRODUCTO ---- */
+  .pdf-product-block { margin-bottom: 5mm; }
+  .pdf-product-name { font-size: 17pt; font-weight: 800; margin-bottom: 1.5mm; line-height: 1.2; }
+  .pdf-product-spec { font-size: 8.5pt; color: #666; }
+
+  /* ---- PRECIO: kg y lb al mismo nivel ---- */
   .pdf-price-block {
     background: var(--pdf-accent, #2F2C2B);
     color: #fff;
-    border-radius: 6px;
-    padding: 6mm 8mm;
-    text-align: center;
-    margin-bottom: 8mm;
+    border-radius: 8px;
+    padding: 5mm 8mm;
+    margin-bottom: 6mm;
   }
-  .pdf-price-block .pdf-incoterm { font-size: 9pt; opacity: 0.8; margin-bottom: 2mm; }
-  .pdf-price-block .pdf-price-main { font-size: 26pt; font-weight: 800; letter-spacing: -1px; }
-  .pdf-price-block .pdf-price-lb { font-size: 11pt; opacity: 0.85; margin-top: 1mm; }
+  .pdf-incoterm-label {
+    font-size: 8.5pt;
+    opacity: 0.75;
+    margin-bottom: 2mm;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .pdf-prices-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+  .pdf-price-unit {
+    flex: 1;
+    text-align: center;
+  }
+  .pdf-price-val {
+    display: block;
+    font-size: 28pt;
+    font-weight: 800;
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+  .pdf-price-unit-label {
+    display: block;
+    font-size: 9pt;
+    opacity: 0.8;
+    margin-top: 1mm;
+  }
+  .pdf-price-divider {
+    font-size: 30pt;
+    opacity: 0.25;
+    padding: 0 4mm;
+    line-height: 1;
+  }
 
+  /* ---- INFO GRID ---- */
   .pdf-info-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 4mm;
-    margin-bottom: 8mm;
+    gap: 3mm;
+    margin-bottom: 5mm;
     font-size: 8.5pt;
   }
-  .pdf-info-cell { border: 1px solid #e5e3e0; border-radius: 4px; padding: 3mm 4mm; }
-  .pdf-info-cell .cell-label { font-weight: 600; color: #888; font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 1mm; }
+  .pdf-info-cell {
+    border: 1px solid #e5e3e0;
+    border-radius: 4px;
+    padding: 2.5mm 3.5mm;
+  }
+  .pdf-info-cell .cell-label {
+    font-weight: 700;
+    color: #999;
+    font-size: 7pt;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 0.8mm;
+  }
+  .pdf-info-cell .cell-val {
+    font-size: 9pt;
+    font-weight: 500;
+    color: #2F2C2B;
+    line-height: 1.3;
+  }
 
+  /* ---- CERTIFICACIONES ---- */
   .pdf-certs {
     display: flex;
-    gap: 4mm;
+    gap: 3mm;
     flex-wrap: wrap;
-    margin-bottom: 8mm;
+    margin-bottom: 5mm;
+    align-items: center;
   }
   .pdf-cert-item {
     display: flex;
@@ -800,29 +883,55 @@ body {
     padding: 2mm 4mm;
     font-size: 7.5pt;
   }
-  .pdf-cert-item img { height: 16px; }
+  .pdf-cert-item img { height: 22px; }
   .pdf-cert-badge {
     background: #f0f0f0;
-    padding: 1px 6px;
+    padding: 2px 7px;
     border-radius: 3px;
-    font-weight: 600;
-    font-size: 7pt;
+    font-weight: 700;
+    font-size: 7.5pt;
+    letter-spacing: 0.3px;
+  }
+  .pdf-cert-name { font-size: 8pt; color: #555; }
+
+  /* ---- COMENTARIOS ---- */
+  .pdf-comments {
+    border-left: 3px solid var(--pdf-accent, #2F2C2B);
+    padding: 3mm 4mm;
+    margin-bottom: 5mm;
+    background: #fafafa;
+    border-radius: 0 4px 4px 0;
+  }
+  .pdf-comments-label {
+    font-size: 7.5pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #888;
+    margin-bottom: 1.5mm;
+  }
+  .pdf-comments-text {
+    font-size: 8.5pt;
+    color: #444;
+    line-height: 1.5;
+    white-space: pre-wrap;
   }
 
+  /* ---- FOOTER ---- */
   .pdf-footer {
     position: absolute;
-    bottom: 10mm;
-    left: 16mm;
-    right: 16mm;
+    bottom: 8mm;
+    left: 14mm;
+    right: 14mm;
     border-top: 1px solid #e5e3e0;
-    padding-top: 4mm;
+    padding-top: 3mm;
     display: flex;
     justify-content: space-between;
     font-size: 7.5pt;
-    color: #888;
+    color: #aaa;
   }
 
-  /* Página 2 — interna */
+  /* ---- PÁGINA 2: INTERNA ---- */
   .pdf-internal-title {
     font-size: 13pt;
     font-weight: 700;
@@ -865,7 +974,6 @@ body {
   .pdf-cost-table tr.subtotal td {
     font-weight: 600;
     background: #f2f1ef;
-    font-size: 8pt;
   }
   .pdf-cost-table tr.grand-total td {
     font-weight: 800;
@@ -895,9 +1003,9 @@ body {
     color: #aaa;
     text-align: center;
     position: absolute;
-    bottom: 10mm;
-    left: 16mm;
-    right: 16mm;
+    bottom: 8mm;
+    left: 14mm;
+    right: 14mm;
   }
 }
 
