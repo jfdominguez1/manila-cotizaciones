@@ -4,12 +4,12 @@ import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.14.1/firebas
 import { getAuth } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 
 const firebaseConfig = {
-  apiKey: "PLACEHOLDER",
+  apiKey: "AIzaSyAbpbH5h94_Wkq0ADR9YvrrHOhtTCoZO3A",
   authDomain: "cotizaciones-manila.firebaseapp.com",
   projectId: "cotizaciones-manila",
-  storageBucket: "cotizaciones-manila.appspot.com",
-  messagingSenderId: "PLACEHOLDER",
-  appId: "PLACEHOLDER"
+  storageBucket: "cotizaciones-manila.firebasestorage.app",
+  messagingSenderId: "27640433214",
+  appId: "1:27640433214:web:4f336ad93d9173858d5f6f"
 };
 
 const app = initializeApp(firebaseConfig);
