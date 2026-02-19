@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cotizaciones Manila</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="topnav">
+  <img src="img/logo-manila.png" alt="Manila" class="nav-logo">
+  <span class="nav-title">Cotizaciones</span>
+  <div class="nav-links">
+    <a href="index.html" class="active">Dashboard</a>
+    <a href="quote.html">Nueva Cotización</a>
+    <a href="history.html">Historial</a>
+    <a href="admin.html">Admin</a>
+  </div>
+  <div class="nav-right">
+    <span class="nav-user" id="nav-user"></span>
+    <button class="btn-logout" id="btn-logout">Salir</button>
+  </div>
+</nav>
+
+<div class="dashboard-page">
+  <h1>Dashboard</h1>
+  <p class="dash-sub" id="dash-greeting">Bienvenido al sistema de cotizaciones Manila S.A.</p>
+
+  <div class="dash-cards">
+    <a href="quote.html" class="dash-card">
+      <div class="dash-card-icon">✏️</div>
+      <div class="dash-card-title">Nueva cotización</div>
+      <div class="dash-card-desc">Construir una cotización nueva con cálculo de costos y márgenes en tiempo real.</div>
+    </a>
+    <a href="history.html" class="dash-card">
+      <div class="dash-card-icon">📋</div>
+      <div class="dash-card-title">Historial</div>
+      <div class="dash-card-desc">Consultar cotizaciones confirmadas y borradores. Abrir como modelo para duplicar.</div>
+    </a>
+    <a href="admin.html" class="dash-card">
+      <div class="dash-card-icon">⚙️</div>
+      <div class="dash-card-title">Administración</div>
+      <div class="dash-card-desc">Gestionar catálogo de productos y tablas de costos de referencia.</div>
+    </a>
+  </div>
+
+  <!-- Últimas cotizaciones -->
+  <div class="dash-section-title">
+    Últimas cotizaciones
+    <a href="history.html">Ver todas →</a>
+  </div>
+  <div id="recent-quotes">
+    <div class="empty-state"><p>Cargando...</p></div>
+  </div>
+
+  <!-- Stats rápidas -->
+  <div class="dash-section-title" style="margin-top:32px">Resumen</div>
+  <div class="dash-cards" id="stats-cards" style="margin-bottom:0">
+    <div class="dash-card" style="cursor:default">
+      <div class="dash-card-icon">✅</div>
+      <div class="dash-card-title" id="stat-confirmed">—</div>
+      <div class="dash-card-desc">Cotizaciones confirmadas</div>
+    </div>
+    <div class="dash-card" style="cursor:default">
+      <div class="dash-card-icon">📝</div>
+      <div class="dash-card-title" id="stat-drafts">—</div>
+      <div class="dash-card-desc">Borradores pendientes</div>
+    </div>
+    <div class="dash-card" style="cursor:default">
+      <div class="dash-card-icon">📦</div>
+      <div class="dash-card-title" id="stat-products">—</div>
+      <div class="dash-card-desc">Productos en catálogo</div>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+  import { requireAuth, logout } from './js/auth.js';
+  import { db } from './js/firebase.js';
+  import { collection, getDocs, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+
+  async function init() {
+    const user = await requireAuth();
+    document.getElementById('nav-user').textContent = user.email;
+    document.getElementById('btn-logout').addEventListener('click', logout);
+    document.getElementById('dash-greeting').textContent =
+      `Hola, ${user.email.split('@')[0]} — ${new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}`;
+
+    const [quotesSnap, productsSnap] = await Promise.all([
+      getDocs(query(collection(db, 'quotes'), orderBy('created_at', 'desc'))),
+      getDocs(collection(db, 'products'))
+    ]);
+
+    const quotes = quotesSnap.docs.map(d => d.data());
+    const confirmed = quotes.filter(q => q.status === 'confirmed').length;
+    const drafts = quotes.filter(q => q.status === 'draft').length;
+
+    document.getElementById('stat-confirmed').textContent = confirmed;
+    document.getElementById('stat-drafts').textContent = drafts;
+    document.getElementById('stat-products').textContent = productsSnap.size;
+
+    // Últimas 6 cotizaciones
+    const recent = quotes.slice(0, 6);
+    const container = document.getElementById('recent-quotes');
+    if (!recent.length) {
+      container.innerHTML = `<div class="empty-state"><p>No hay cotizaciones todavía. <a href="quote.html">Crear la primera →</a></p></div>`;
+      return;
+    }
+
+    const table = document.createElement('table');
+    table.className = 'quotes-table';
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>N°</th>
+          <th>Fecha</th>
+          <th>Cliente</th>
+          <th>Producto</th>
+          <th>Incoterm</th>
+          <th>Precio/kg</th>
+          <th>Precio/lb</th>
+          <th>Estado</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `;
+    const tbody = table.querySelector('tbody');
+    recent.forEach(q => {
+      const tr = document.createElement('tr');
+      const dateStr = q.created_at
+        ? new Date(q.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        : '—';
+      tr.innerHTML = `
+        <td class="quote-number">${q.quote_number ?? '—'}</td>
+        <td>${dateStr}</td>
+        <td>${q.client?.name ?? '—'}</td>
+        <td>${q.product?.name ?? '—'}</td>
+        <td><strong>${q.incoterm ?? '—'}</strong></td>
+        <td class="num">$${(q.price_per_kg ?? 0).toFixed(2)}</td>
+        <td class="num">$${(q.price_per_lb ?? 0).toFixed(2)}</td>
+        <td><span class="status-badge ${q.status}">${q.status === 'confirmed' ? 'Confirmada' : 'Borrador'}</span></td>
+        <td>
+          <a href="history.html" style="font-size:12px;color:var(--accent);text-decoration:none">Ver →</a>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+    container.innerHTML = '';
+    container.appendChild(table);
+  }
+
+  init();
+</script>
+
+</body>
+</html>

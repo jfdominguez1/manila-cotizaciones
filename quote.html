@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cotizaciones Manila — Nueva Cotización</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- TOP NAV -->
+<nav class="topnav">
+  <img src="img/logo-manila.png" alt="Manila" class="nav-logo">
+  <span class="nav-title">Cotizaciones</span>
+  <div class="nav-links">
+    <a href="index.html">Dashboard</a>
+    <a href="quote.html" class="active">Nueva Cotización</a>
+    <a href="history.html">Historial</a>
+    <a href="admin.html">Admin</a>
+  </div>
+  <div class="nav-right">
+    <span class="nav-user" id="nav-user"></span>
+    <button class="btn-logout" id="btn-logout">Salir</button>
+  </div>
+</nav>
+
+<!-- MAIN LAYOUT -->
+<div class="quote-layout">
+
+  <!-- PANEL IZQUIERDO -->
+  <aside class="quote-panel">
+
+    <!-- Header del panel -->
+    <div class="panel-header">
+      <h2>Nueva Cotización</h2>
+      <span class="quote-number" id="panel-quote-number">—</span>
+    </div>
+
+    <!-- Producto -->
+    <div class="panel-section">
+      <h3>Producto</h3>
+      <div class="product-selector">
+        <div class="product-thumb-placeholder" id="product-thumb-wrap">
+          <span>📦</span>
+        </div>
+        <div style="flex:1">
+          <select id="product-select" style="width:100%;padding:7px 10px;border:1px solid var(--gray-200);border-radius:6px;font-size:13px;font-family:var(--font);outline:none;color:var(--carbon)">
+            <option value="">— Seleccionar producto —</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Marca -->
+    <div class="panel-section">
+      <h3>Marca</h3>
+      <div class="brand-switcher" id="brand-switcher">
+        <button class="brand-btn" data-brand="manila">Manila<br>S.A.</button>
+        <button class="brand-btn active" data-brand="patagonia">Patagonia<br>Exquisiteces</button>
+        <button class="brand-btn" data-brand="andes">Andes<br>Natural Fish</button>
+      </div>
+    </div>
+
+    <!-- Cliente -->
+    <div class="panel-section">
+      <h3>Cliente</h3>
+      <div class="form-row">
+        <label>Nombre / Empresa</label>
+        <input type="text" id="client-name" placeholder="Whole Foods USA...">
+      </div>
+      <div class="form-row-2col">
+        <div>
+          <label>País</label>
+          <input type="text" id="client-country" placeholder="USA">
+        </div>
+        <div>
+          <label>Contacto</label>
+          <input type="text" id="client-contact" placeholder="John Smith">
+        </div>
+      </div>
+    </div>
+
+    <!-- Parámetros de la operación -->
+    <div class="panel-section">
+      <h3>Operación</h3>
+      <div class="form-row">
+        <label>Incoterm</label>
+        <select id="incoterm-select">
+          <option value="">— Seleccionar —</option>
+        </select>
+      </div>
+      <div class="form-row-2col">
+        <div>
+          <label>Volumen total (kg)</label>
+          <input type="number" id="volume-kg" placeholder="10000" min="1" step="1">
+        </div>
+        <div>
+          <label>N° de embarques</label>
+          <input type="number" id="num-shipments" value="1" min="1" step="1">
+        </div>
+      </div>
+      <div class="form-row-2col">
+        <div>
+          <label>Rendimiento (%)</label>
+          <input type="number" id="yield-pct" placeholder="50" min="1" max="100" step="0.1">
+        </div>
+        <div>
+          <label>Validez (días)</label>
+          <input type="number" id="valid-days" value="15" min="1">
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Lead time</label>
+        <input type="text" id="lead-time" placeholder="7-10 días desde confirmación">
+      </div>
+      <div class="form-row">
+        <label>Notas internas</label>
+        <textarea id="quote-notes" placeholder="Condiciones especiales, observaciones..."></textarea>
+      </div>
+    </div>
+
+    <!-- Resumen de costos -->
+    <div class="panel-section">
+      <h3>Resumen de costos</h3>
+      <div class="cost-summary" id="cost-summary">
+        <div class="cost-summary-row" id="summary-rows-container">
+          <!-- generado por JS -->
+        </div>
+      </div>
+
+      <!-- Margen -->
+      <div class="margin-row">
+        <label>Margen</label>
+        <input type="number" id="margin-pct" value="20" min="0" max="100" step="0.1">
+        <span class="margin-hint">%</span>
+      </div>
+
+      <!-- Precio final destacado -->
+      <div class="price-highlight" id="price-highlight">
+        <div class="price-label">Precio de venta</div>
+        <div class="price-kg" id="price-kg">USD —</div>
+        <div class="price-lb" id="price-lb">— /lb</div>
+      </div>
+    </div>
+
+    <!-- Acciones -->
+    <div class="panel-actions">
+      <button class="btn-primary" id="btn-confirm" disabled>Confirmar cotización</button>
+      <button class="btn-secondary" id="btn-save-draft">Guardar borrador</button>
+      <button class="btn-secondary" id="btn-print" disabled>Imprimir / PDF</button>
+    </div>
+
+  </aside>
+
+  <!-- COLUMNA DERECHA: CAPAS DE COSTO -->
+  <main class="quote-layers" id="layers-container">
+    <!-- generado por JS -->
+  </main>
+
+</div>
+
+<!-- PDF: PRINT ONLY -->
+<div class="pdf-container" id="pdf-container">
+  <!-- Página 1: Cliente -->
+  <div class="pdf-page" id="pdf-client-page">
+    <div class="pdf-header">
+      <img id="pdf-logo" src="img/logo-manila.png" alt="Manila" class="pdf-logo">
+      <div class="pdf-meta">
+        <div class="pdf-quote-number" id="pdf-quote-number">—</div>
+        <div class="pdf-date" id="pdf-date"></div>
+        <div class="pdf-valid" id="pdf-valid"></div>
+      </div>
+    </div>
+    <div class="pdf-product-row">
+      <img id="pdf-product-img" src="" alt="" class="pdf-product-img" style="display:none">
+      <div class="pdf-product-info">
+        <div class="pdf-product-name" id="pdf-product-name"></div>
+        <div class="pdf-product-spec" id="pdf-product-spec"></div>
+      </div>
+    </div>
+    <div class="pdf-price-block" id="pdf-price-block">
+      <div class="pdf-incoterm" id="pdf-incoterm"></div>
+      <div class="pdf-price-main" id="pdf-price-main"></div>
+      <div class="pdf-price-lb" id="pdf-price-lb-text"></div>
+    </div>
+    <div class="pdf-info-grid">
+      <div class="pdf-info-cell">
+        <div class="cell-label">Cliente</div>
+        <div id="pdf-client"></div>
+      </div>
+      <div class="pdf-info-cell">
+        <div class="cell-label">País</div>
+        <div id="pdf-country"></div>
+      </div>
+      <div class="pdf-info-cell">
+        <div class="cell-label">Lead Time</div>
+        <div id="pdf-leadtime"></div>
+      </div>
+      <div class="pdf-info-cell">
+        <div class="cell-label">Volumen</div>
+        <div id="pdf-volume"></div>
+      </div>
+    </div>
+    <div class="pdf-certs" id="pdf-certs"></div>
+    <div class="pdf-footer">
+      <span>Manila S.A. — Bariloche, Río Negro, Patagonia Argentina</span>
+      <span>info@manilapatagonia.com · www.manilapatagonia.com</span>
+    </div>
+  </div>
+
+  <!-- Página 2: Interna -->
+  <div class="pdf-page" id="pdf-internal-page">
+    <div class="pdf-internal-title">
+      <span>Detalle de costos — <span id="pdf-int-quote-number"></span></span>
+      <span class="int-sub">USO INTERNO MANILA S.A. — CONFIDENCIAL</span>
+    </div>
+    <table class="pdf-cost-table" id="pdf-cost-table">
+      <thead>
+        <tr>
+          <th>Concepto</th>
+          <th>Fuente</th>
+          <th class="num">Valor original</th>
+          <th class="num">Fijo/emb.</th>
+          <th class="num">Fijo/coti.</th>
+          <th class="num">$/kg</th>
+        </tr>
+      </thead>
+      <tbody id="pdf-cost-tbody"></tbody>
+    </table>
+    <div class="pdf-summary-box" id="pdf-summary-box">
+      <div class="sum-cell">
+        <div class="sum-label">Costo total</div>
+        <div class="sum-val" id="pdf-sum-cost"></div>
+        <div class="sum-sub">USD/kg</div>
+      </div>
+      <div class="sum-cell">
+        <div class="sum-label">Margen aplicado</div>
+        <div class="sum-val" id="pdf-sum-margin"></div>
+        <div class="sum-sub">%</div>
+      </div>
+      <div class="sum-cell">
+        <div class="sum-label">Precio final</div>
+        <div class="sum-val" id="pdf-sum-price"></div>
+        <div class="sum-sub" id="pdf-sum-price-lb"></div>
+      </div>
+    </div>
+    <div class="pdf-meta-footer" id="pdf-meta-footer"></div>
+  </div>
+</div>
+
+<script type="module" src="js/quote.js"></script>
+</body>
+</html>

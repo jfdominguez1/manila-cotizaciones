@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cotizaciones Manila — Historial</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="topnav">
+  <img src="img/logo-manila.png" alt="Manila" class="nav-logo">
+  <span class="nav-title">Cotizaciones</span>
+  <div class="nav-links">
+    <a href="index.html">Dashboard</a>
+    <a href="quote.html">Nueva Cotización</a>
+    <a href="history.html" class="active">Historial</a>
+    <a href="admin.html">Admin</a>
+  </div>
+  <div class="nav-right">
+    <span class="nav-user" id="nav-user"></span>
+    <button class="btn-logout" id="btn-logout">Salir</button>
+  </div>
+</nav>
+
+<div class="history-page">
+  <h1>Historial de cotizaciones</h1>
+  <p class="history-sub">Cotizaciones confirmadas y borradores guardados</p>
+
+  <div class="history-filters">
+    <input type="text" id="filter-client" placeholder="Buscar cliente...">
+    <input type="text" id="filter-product" placeholder="Buscar producto...">
+    <select id="filter-incoterm">
+      <option value="">Todos los Incoterms</option>
+      <option value="EXW">EXW</option>
+      <option value="FCA">FCA</option>
+      <option value="FOB">FOB</option>
+      <option value="CFR">CFR</option>
+      <option value="CIF">CIF</option>
+      <option value="DDP">DDP</option>
+    </select>
+    <select id="filter-status">
+      <option value="">Todos</option>
+      <option value="confirmed">Confirmadas</option>
+      <option value="draft">Borradores</option>
+    </select>
+    <select id="filter-user">
+      <option value="">Todos los usuarios</option>
+    </select>
+  </div>
+
+  <div id="table-wrap">
+    <div class="empty-state">
+      <div class="empty-icon">📋</div>
+      <p>Cargando cotizaciones...</p>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALLE -->
+<div class="modal-overlay" id="detail-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title">Cotización —</h2>
+      <button class="btn-icon" id="modal-close" style="font-size:20px">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn-secondary" id="btn-copy-quote">Usar como modelo</button>
+      <button class="btn-primary" id="btn-print-detail">Imprimir / PDF</button>
+      <button class="btn-icon" id="btn-delete-quote" style="margin-right:auto;color:var(--orange)" title="Eliminar borrador">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="js/history.js"></script>
+</body>
+</html>

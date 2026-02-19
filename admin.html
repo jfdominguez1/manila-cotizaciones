@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cotizaciones Manila — Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="topnav">
+  <img src="img/logo-manila.png" alt="Manila" class="nav-logo">
+  <span class="nav-title">Cotizaciones</span>
+  <div class="nav-links">
+    <a href="index.html">Dashboard</a>
+    <a href="quote.html">Nueva Cotización</a>
+    <a href="history.html">Historial</a>
+    <a href="admin.html" class="active">Admin</a>
+  </div>
+  <div class="nav-right">
+    <span class="nav-user" id="nav-user"></span>
+    <button class="btn-logout" id="btn-logout">Salir</button>
+  </div>
+</nav>
+
+<div class="admin-page">
+  <h1>Administración</h1>
+
+  <div class="admin-tabs">
+    <button class="admin-tab active" data-tab="products">Productos</button>
+    <button class="admin-tab" data-tab="costs">Tablas de costos</button>
+  </div>
+
+  <!-- TAB: PRODUCTOS -->
+  <div class="admin-tab-content active" id="tab-products">
+    <div class="admin-list-header">
+      <h2>Catálogo de productos</h2>
+      <button class="btn-primary" id="btn-new-product">＋ Nuevo producto</button>
+    </div>
+
+    <!-- Formulario producto -->
+    <div class="admin-form-panel" id="product-form-panel">
+      <h3 id="product-form-title">Nuevo producto</h3>
+      <div class="admin-form-grid">
+        <div class="admin-form-field">
+          <label>Nombre del producto *</label>
+          <input type="text" id="p-name" placeholder="Fresh Natural Fillet">
+        </div>
+        <div class="admin-form-field">
+          <label>Presentación</label>
+          <input type="text" id="p-presentation" placeholder="Fillet / Whole / Smoked...">
+        </div>
+        <div class="admin-form-field">
+          <label>Especie</label>
+          <input type="text" id="p-species" placeholder="Rainbow Trout (Oncorhynchus mykiss)">
+        </div>
+        <div class="admin-form-field">
+          <label>Corte / Trim</label>
+          <input type="text" id="p-trim" placeholder="Trim D — Skin On, Pin Bone Out">
+        </div>
+        <div class="admin-form-field">
+          <label>Calibres disponibles</label>
+          <input type="text" id="p-caliber" placeholder="4-6 oz, 6-8 oz, 8-10 oz">
+        </div>
+        <div class="admin-form-field">
+          <label>Rendimiento por defecto (%)</label>
+          <input type="number" id="p-yield" placeholder="50" min="1" max="100" step="0.1">
+        </div>
+        <div class="admin-form-field">
+          <label>URL de foto principal</label>
+          <input type="text" id="p-photo" placeholder="img/fillet-white.jpg">
+        </div>
+        <div class="admin-form-field">
+          <label>Orden de visualización</label>
+          <input type="number" id="p-order" placeholder="0" min="0">
+        </div>
+      </div>
+      <div class="admin-form-grid single">
+        <div class="admin-form-field">
+          <label>Notas / descripción</label>
+          <textarea id="p-notes" placeholder="Descripción breve del producto para el PDF..."></textarea>
+        </div>
+      </div>
+      <div class="admin-form-field" style="margin-bottom:16px">
+        <label>Certificaciones</label>
+        <div class="cert-checkboxes">
+          <label><input type="checkbox" value="bap" class="cert-check"> BAP Certified</label>
+          <label><input type="checkbox" value="oie" class="cert-check"> OIE Compliant</label>
+          <label><input type="checkbox" value="ecocert" class="cert-check"> Ecocert Audited</label>
+        </div>
+      </div>
+      <div class="admin-form-actions">
+        <button class="btn-primary" id="btn-save-product">Guardar producto</button>
+        <button class="btn-secondary" id="btn-cancel-product">Cancelar</button>
+        <button class="btn-danger" id="btn-delete-product" style="margin-left:auto;display:none">Eliminar</button>
+      </div>
+    </div>
+
+    <!-- Lista de productos -->
+    <div class="admin-cards" id="products-list">
+      <div class="empty-state"><div class="empty-icon">📦</div><p>Cargando...</p></div>
+    </div>
+  </div>
+
+  <!-- TAB: TABLAS DE COSTOS -->
+  <div class="admin-tab-content" id="tab-costs">
+    <div class="admin-list-header">
+      <h2>Tablas de referencia de costos</h2>
+      <button class="btn-primary" id="btn-new-cost">＋ Nuevo ítem</button>
+    </div>
+
+    <!-- Formulario costo -->
+    <div class="admin-form-panel" id="cost-form-panel">
+      <h3 id="cost-form-title">Nuevo ítem de costo</h3>
+      <div class="admin-form-grid">
+        <div class="admin-form-field">
+          <label>Nombre *</label>
+          <input type="text" id="c-name" placeholder="Flete BHC → EZE">
+        </div>
+        <div class="admin-form-field">
+          <label>Capa de costo</label>
+          <select id="c-layer">
+            <option value="raw_material">Materia Prima</option>
+            <option value="processing">Proceso en Planta</option>
+            <option value="packaging">Materiales y Embalaje</option>
+            <option value="transport">Transporte Interno</option>
+            <option value="export">Costos de Exportación</option>
+            <option value="other">Otros</option>
+          </select>
+        </div>
+        <div class="admin-form-field">
+          <label>Valor variable</label>
+          <input type="number" id="c-value" placeholder="0.00" min="0" step="0.01">
+        </div>
+        <div class="admin-form-field">
+          <label>Unidad</label>
+          <select id="c-unit">
+            <option value="kg">$/kg</option>
+            <option value="unit">$/unidad</option>
+            <option value="box">$/caja</option>
+            <option value="load">$/carga</option>
+            <option value="pct_cost">% sobre costo</option>
+            <option value="pct_price">% sobre precio</option>
+          </select>
+        </div>
+        <div class="admin-form-field" id="c-unitkg-wrap">
+          <label>kg por unidad/caja</label>
+          <input type="number" id="c-unitkg" placeholder="10" min="0.01" step="0.01">
+        </div>
+        <div class="admin-form-field">
+          <label>Fijo por embarque ($)</label>
+          <input type="number" id="c-fixed-ship" placeholder="0" min="0" step="0.01">
+        </div>
+        <div class="admin-form-field">
+          <label>Fijo por cotización ($)</label>
+          <input type="number" id="c-fixed-quote" placeholder="0" min="0" step="0.01">
+        </div>
+        <div class="admin-form-field">
+          <label>Notas</label>
+          <input type="text" id="c-notes" placeholder="Condiciones, proveedor, fecha de vigencia...">
+        </div>
+      </div>
+      <div class="admin-form-actions">
+        <button class="btn-primary" id="btn-save-cost">Guardar</button>
+        <button class="btn-secondary" id="btn-cancel-cost">Cancelar</button>
+        <button class="btn-danger" id="btn-delete-cost" style="margin-left:auto;display:none">Eliminar</button>
+      </div>
+    </div>
+
+    <!-- Lista de ítems de costo -->
+    <div id="costs-list">
+      <div class="empty-state"><div class="empty-icon">💰</div><p>Cargando...</p></div>
+    </div>
+  </div>
+
+</div>
+
+<script type="module" src="js/admin.js"></script>
+</body>
+</html>
