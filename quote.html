@@ -192,21 +192,66 @@
      ============================================================ -->
 <div class="pdf-container" id="pdf-container">
 
-  <!-- PÁGINA 1: CLIENTE -->
+  <!-- PÁGINA 1: INTERNA (costos) — imprime primero en PDF Costos -->
+  <div class="pdf-page pdf-internal-page" id="pdf-internal-page">
+    <div class="pdf-internal-title">
+      <span>Detalle de costos — <span id="pdf-int-quote-number"></span></span>
+      <span class="int-sub">USO INTERNO MANILA S.A. — CONFIDENCIAL</span>
+    </div>
+    <table class="pdf-cost-table" id="pdf-cost-table">
+      <thead>
+        <tr>
+          <th>Concepto</th>
+          <th>Fuente</th>
+          <th class="num">Valor original</th>
+          <th class="num">Fijo/emb.</th>
+          <th class="num">Fijo/coti.</th>
+          <th class="num">$/kg</th>
+        </tr>
+      </thead>
+      <tbody id="pdf-cost-tbody"></tbody>
+    </table>
+    <div class="pdf-summary-box">
+      <div class="sum-cell">
+        <div class="sum-label">Costo total</div>
+        <div class="sum-val" id="pdf-sum-cost"></div>
+        <div class="sum-sub">USD/kg</div>
+      </div>
+      <div class="sum-cell">
+        <div class="sum-label">Margen aplicado</div>
+        <div class="sum-val" id="pdf-sum-margin"></div>
+        <div class="sum-sub">%</div>
+      </div>
+      <div class="sum-cell">
+        <div class="sum-label">Precio final</div>
+        <div class="sum-val" id="pdf-sum-price"></div>
+        <div class="sum-sub" id="pdf-sum-price-lb"></div>
+      </div>
+    </div>
+    <div class="pdf-meta-footer" id="pdf-meta-footer"></div>
+  </div>
+
+  <!-- PÁGINA 2: CLIENTE — sola en PDF Cliente, segunda en PDF Costos -->
   <div class="pdf-page pdf-client-page" id="pdf-client-page">
 
-    <!-- Header: logo grande + número de cotización -->
+    <!-- Inscripción visible solo en PDF Costos (modo internal) -->
+    <div class="pdf-copy-label">COPIA ENVIADA AL CLIENTE</div>
+
+    <!-- Header: logo marca (izq) + logo Manila pequeño + datos cotización (der) -->
     <div class="pdf-header">
-      <img id="pdf-logo" src="img/logo-manila.png" alt="Manila" class="pdf-logo">
+      <img id="pdf-logo" src="img/logo-manila.png" alt="Manila" class="pdf-brand-logo">
       <div class="pdf-header-right">
-        <div class="pdf-quote-number" id="pdf-quote-number">—</div>
-        <div class="pdf-date" id="pdf-date"></div>
-        <div class="pdf-valid" id="pdf-valid"></div>
+        <img id="pdf-manila-logo-small" src="img/logo-manila.png" alt="Manila S.A." class="pdf-manila-small">
+        <div class="pdf-header-info">
+          <div class="pdf-quote-number" id="pdf-quote-number">—</div>
+          <div class="pdf-date" id="pdf-date"></div>
+          <div class="pdf-valid" id="pdf-valid"></div>
+        </div>
       </div>
     </div>
 
-    <!-- Foto del producto (ancho completo) -->
-    <div class="pdf-photo-wrap" id="pdf-photo-wrap" style="display:none">
+    <!-- Foto del producto (siempre visible, fallback de color) -->
+    <div class="pdf-photo-wrap" id="pdf-photo-wrap">
       <img id="pdf-product-img" src="" alt="" class="pdf-product-photo">
     </div>
 
@@ -214,22 +259,6 @@
     <div class="pdf-product-block">
       <div class="pdf-product-name" id="pdf-product-name"></div>
       <div class="pdf-product-spec" id="pdf-product-spec"></div>
-    </div>
-
-    <!-- Precio: kg y lb al mismo nivel -->
-    <div class="pdf-price-block" id="pdf-price-block">
-      <div class="pdf-incoterm-label" id="pdf-incoterm-label"></div>
-      <div class="pdf-prices-row">
-        <div class="pdf-price-unit">
-          <span class="pdf-price-val" id="pdf-price-main">—</span>
-          <span class="pdf-price-unit-label">USD / kg</span>
-        </div>
-        <div class="pdf-price-divider">|</div>
-        <div class="pdf-price-unit">
-          <span class="pdf-price-val" id="pdf-price-lb-val">—</span>
-          <span class="pdf-price-unit-label">USD / lb</span>
-        </div>
-      </div>
     </div>
 
     <!-- Info grid: todos los datos del envío -->
@@ -277,50 +306,27 @@
       <div class="pdf-comments-text" id="pdf-comments-text"></div>
     </div>
 
+    <!-- Precio al final: kg y lb al mismo nivel -->
+    <div class="pdf-price-block" id="pdf-price-block">
+      <div class="pdf-incoterm-label" id="pdf-incoterm-label"></div>
+      <div class="pdf-prices-row">
+        <div class="pdf-price-unit">
+          <span class="pdf-price-val" id="pdf-price-main">—</span>
+          <span class="pdf-price-unit-label">USD / kg</span>
+        </div>
+        <div class="pdf-price-divider">|</div>
+        <div class="pdf-price-unit">
+          <span class="pdf-price-val" id="pdf-price-lb-val">—</span>
+          <span class="pdf-price-unit-label">USD / lb</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Footer -->
     <div class="pdf-footer">
       <span>Manila S.A. — Bariloche, Río Negro, Patagonia Argentina</span>
       <span>info@manilapatagonia.com · www.manilapatagonia.com</span>
     </div>
-  </div>
-
-  <!-- PÁGINA 2: INTERNA (costos) -->
-  <div class="pdf-page pdf-internal-page" id="pdf-internal-page">
-    <div class="pdf-internal-title">
-      <span>Detalle de costos — <span id="pdf-int-quote-number"></span></span>
-      <span class="int-sub">USO INTERNO MANILA S.A. — CONFIDENCIAL</span>
-    </div>
-    <table class="pdf-cost-table" id="pdf-cost-table">
-      <thead>
-        <tr>
-          <th>Concepto</th>
-          <th>Fuente</th>
-          <th class="num">Valor original</th>
-          <th class="num">Fijo/emb.</th>
-          <th class="num">Fijo/coti.</th>
-          <th class="num">$/kg</th>
-        </tr>
-      </thead>
-      <tbody id="pdf-cost-tbody"></tbody>
-    </table>
-    <div class="pdf-summary-box">
-      <div class="sum-cell">
-        <div class="sum-label">Costo total</div>
-        <div class="sum-val" id="pdf-sum-cost"></div>
-        <div class="sum-sub">USD/kg</div>
-      </div>
-      <div class="sum-cell">
-        <div class="sum-label">Margen aplicado</div>
-        <div class="sum-val" id="pdf-sum-margin"></div>
-        <div class="sum-sub">%</div>
-      </div>
-      <div class="sum-cell">
-        <div class="sum-label">Precio final</div>
-        <div class="sum-val" id="pdf-sum-price"></div>
-        <div class="sum-sub" id="pdf-sum-price-lb"></div>
-      </div>
-    </div>
-    <div class="pdf-meta-footer" id="pdf-meta-footer"></div>
   </div>
 
 </div>

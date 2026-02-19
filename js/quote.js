@@ -817,6 +817,10 @@ function printQuote(mode) {
 
   // ---- Página cliente ----
   document.getElementById('pdf-logo').src = brand.logo;
+
+  // Logo Manila pequeño: solo para Patagonia/Andes (como en fichas)
+  const manilaSmall = document.getElementById('pdf-manila-logo-small');
+  if (manilaSmall) manilaSmall.style.display = currentBrand !== 'manila' ? '' : 'none';
   document.getElementById('pdf-quote-number').textContent = currentQuoteNumber;
   document.getElementById('pdf-date').textContent = today;
   document.getElementById('pdf-valid').textContent = `Valid ${validDays} days`;
@@ -846,14 +850,16 @@ function printQuote(mode) {
   document.getElementById('pdf-leadtime-val').textContent = document.getElementById('lead-time').value || '—';
   document.getElementById('pdf-validuntil-val').textContent = validUntil;
 
-  // Foto producto
+  // Foto producto — siempre visible (fallback de color brand si no hay foto)
   const photoWrap = document.getElementById('pdf-photo-wrap');
   const productImg = document.getElementById('pdf-product-img');
   if (currentProduct?.photo) {
     productImg.src = currentProduct.photo;
-    photoWrap.style.display = '';
+    productImg.style.display = 'block';
+    photoWrap.classList.add('has-photo');
   } else {
-    photoWrap.style.display = 'none';
+    productImg.style.display = 'none';
+    photoWrap.classList.remove('has-photo');
   }
 
   // Nombre y specs

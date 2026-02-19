@@ -733,15 +733,14 @@ body {
   body > *:not(.pdf-container) { display: none !important; }
   .pdf-container { display: block !important; }
 
-  /* Ocultar solo la página interna cuando imprimimos solo cliente */
+  /* PDF Cliente: solo página cliente */
   body.print-client .pdf-internal-page { display: none !important; }
-  /* Ocultar solo la página cliente cuando imprimimos solo internos */
-  body.print-internal .pdf-client-page { display: none !important; }
+  /* PDF Costos: ambas páginas (interna primero, cliente después con inscripción) */
 
   .pdf-page {
     width: 210mm;
     min-height: 297mm;
-    padding: 12mm 14mm 22mm;
+    padding: 11mm 14mm 22mm;
     background: #fff;
     page-break-after: always;
     font-family: 'Inter', sans-serif;
@@ -751,34 +750,65 @@ body {
   }
   .pdf-page:last-child { page-break-after: auto; }
 
+  /* ---- INSCRIPCIÓN "COPIA ENVIADA AL CLIENTE" ---- */
+  .pdf-copy-label { display: none; }
+  body.print-internal .pdf-copy-label {
+    display: block;
+    text-align: center;
+    font-size: 7pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--pdf-accent, #2F2C2B);
+    border: 1px dashed var(--pdf-accent, #2F2C2B);
+    border-radius: 3px;
+    padding: 1.5mm 4mm;
+    margin-bottom: 4mm;
+    opacity: 0.5;
+  }
+
   /* ---- HEADER ---- */
   .pdf-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 7mm;
-    border-bottom: 3px solid var(--pdf-accent, #2F2C2B);
-    padding-bottom: 5mm;
+    margin-bottom: 5mm;
+    border-bottom: 2px solid var(--pdf-accent, #2F2C2B);
+    padding-bottom: 4mm;
   }
-  .pdf-logo {
-    height: 56px;   /* 4-5x más grande que antes */
-    max-width: 80mm;
+  .pdf-brand-logo {
+    height: 52px;
+    max-width: 72mm;
     object-fit: contain;
     object-position: left center;
   }
-  .pdf-header-right { text-align: right; }
-  .pdf-quote-number { font-size: 14pt; font-weight: 800; color: var(--pdf-accent, #2F2C2B); }
-  .pdf-date { font-size: 8pt; color: #888; margin-top: 1mm; }
-  .pdf-valid { font-size: 8pt; color: #888; }
+  .pdf-header-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2mm;
+  }
+  .pdf-manila-small {
+    height: 26px;
+    opacity: 0.55;
+    object-fit: contain;
+    object-position: right center;
+  }
+  .pdf-header-info { text-align: right; }
+  .pdf-quote-number { font-size: 12pt; font-weight: 800; color: var(--pdf-accent, #2F2C2B); }
+  .pdf-date { font-size: 7.5pt; color: #888; }
+  .pdf-valid { font-size: 7.5pt; color: #888; }
 
-  /* ---- FOTO PRODUCTO ---- */
+  /* ---- FOTO PRODUCTO — siempre visible (fallback de color si no hay foto) ---- */
   .pdf-photo-wrap {
     width: 100%;
-    height: 52mm;
-    margin-bottom: 5mm;
+    height: 44mm;
+    margin-bottom: 4mm;
     border-radius: 6px;
     overflow: hidden;
+    background: var(--pdf-accent, #2F2C2B);
   }
+  .pdf-photo-wrap.has-photo { background: transparent; }
   .pdf-product-photo {
     width: 100%;
     height: 100%;
@@ -787,10 +817,17 @@ body {
     display: block;
   }
 
-  /* ---- NOMBRE PRODUCTO ---- */
-  .pdf-product-block { margin-bottom: 5mm; }
-  .pdf-product-name { font-size: 17pt; font-weight: 800; margin-bottom: 1.5mm; line-height: 1.2; }
-  .pdf-product-spec { font-size: 8.5pt; color: #666; }
+  /* ---- NOMBRE PRODUCTO — Playfair Display como fichas ---- */
+  .pdf-product-block { margin-bottom: 4mm; }
+  .pdf-product-name {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-style: italic;
+    font-size: 18pt;
+    font-weight: 700;
+    margin-bottom: 1mm;
+    line-height: 1.2;
+  }
+  .pdf-product-spec { font-size: 8pt; color: #666; }
 
   /* ---- PRECIO: kg y lb al mismo nivel ---- */
   .pdf-price-block {
