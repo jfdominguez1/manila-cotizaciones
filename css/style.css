@@ -989,45 +989,48 @@ body {
     color: #aaa;
   }
 
-  /* ---- PÁGINA 2: INTERNA ---- */
+  /* ---- PÁGINA 2: INTERNA — padding compacto para entrar en 1 hoja ---- */
+  .pdf-internal-page {
+    padding: 9mm 12mm 15mm;
+  }
   .pdf-internal-title {
-    font-size: 13pt;
+    font-size: 12pt;
     font-weight: 700;
-    margin-bottom: 6mm;
-    padding-bottom: 3mm;
+    margin-bottom: 3mm;
+    padding-bottom: 2mm;
     border-bottom: 1px solid #e5e3e0;
     display: flex;
     justify-content: space-between;
     align-items: flex-end;
   }
-  .pdf-internal-title .int-sub { font-size: 8pt; font-weight: 400; color: #888; }
+  .pdf-internal-title .int-sub { font-size: 7.5pt; font-weight: 400; color: #888; }
 
   .pdf-cost-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 8pt;
-    margin-bottom: 6mm;
+    font-size: 7.5pt;
+    margin-bottom: 4mm;
   }
   .pdf-cost-table th {
     background: #f2f1ef;
-    padding: 3mm 4mm;
+    padding: 2mm 3mm;
     text-align: left;
-    font-size: 7.5pt;
+    font-size: 7pt;
     font-weight: 600;
     color: #666;
     text-transform: uppercase;
     letter-spacing: 0.3px;
   }
   .pdf-cost-table td {
-    padding: 2.5mm 4mm;
+    padding: 1.5mm 3mm;
     border-bottom: 1px solid #f0eeec;
     vertical-align: middle;
   }
   .pdf-cost-table tr.layer-title td {
     background: #f9f9f8;
     font-weight: 700;
-    font-size: 8.5pt;
-    padding-top: 3mm;
+    font-size: 8pt;
+    padding-top: 2mm;
   }
   .pdf-cost-table tr.subtotal td {
     font-weight: 600;
@@ -1035,10 +1038,10 @@ body {
   }
   .pdf-cost-table tr.grand-total td {
     font-weight: 800;
-    font-size: 10pt;
+    font-size: 9pt;
     background: #2F2C2B;
     color: #fff;
-    padding: 3mm 4mm;
+    padding: 2mm 3mm;
   }
   .pdf-cost-table .num { text-align: right; font-variant-numeric: tabular-nums; }
 
@@ -1046,34 +1049,34 @@ body {
   .pdf-cost-breakdown {
     border: 1px solid #e5e3e0;
     border-radius: 5px;
-    padding: 4mm 5mm;
-    margin-bottom: 5mm;
-    font-size: 8pt;
+    padding: 2.5mm 4mm;
+    margin-bottom: 3mm;
+    font-size: 7.5pt;
   }
   .pdf-cost-breakdown-title {
-    font-size: 7.5pt;
+    font-size: 7pt;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     color: #888;
-    margin-bottom: 3mm;
+    margin-bottom: 2mm;
   }
   .pdf-breakdown-row {
     display: flex;
     justify-content: space-between;
-    padding: 1.2mm 0;
+    padding: 0.8mm 0;
     border-bottom: 1px solid #f2f1ef;
   }
   .pdf-breakdown-row:last-child { border-bottom: none; }
-  .pdf-breakdown-row.separator { border-top: 1.5px solid #ccc; margin-top: 1.5mm; padding-top: 2.5mm; }
+  .pdf-breakdown-row.separator { border-top: 1.5px solid #ccc; margin-top: 1mm; padding-top: 1.8mm; }
   .pdf-breakdown-row.total {
     font-weight: 800;
-    font-size: 10pt;
+    font-size: 9.5pt;
     background: var(--pdf-accent, #2F2C2B);
     color: #fff;
-    padding: 2.5mm 3mm;
+    padding: 2mm 3mm;
     border-radius: 3px;
-    margin-top: 2mm;
+    margin-top: 1.5mm;
   }
   .pdf-breakdown-row .bd-label { color: #555; }
   .pdf-breakdown-row.separator .bd-label { color: #2F2C2B; font-weight: 700; }
@@ -1082,16 +1085,16 @@ body {
   .pdf-summary-box {
     border: 2px solid #2F2C2B;
     border-radius: 6px;
-    padding: 5mm 6mm;
+    padding: 3mm 5mm;
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
-    gap: 4mm;
-    margin-bottom: 6mm;
-    font-size: 8.5pt;
+    gap: 3mm;
+    margin-bottom: 4mm;
+    font-size: 8pt;
   }
-  .pdf-summary-box .sum-cell .sum-label { font-size: 7.5pt; color: #888; font-weight: 600; text-transform: uppercase; }
-  .pdf-summary-box .sum-cell .sum-val { font-size: 14pt; font-weight: 800; margin-top: 1mm; }
-  .pdf-summary-box .sum-cell .sum-sub { font-size: 8pt; color: #888; }
+  .pdf-summary-box .sum-cell .sum-label { font-size: 7pt; color: #888; font-weight: 600; text-transform: uppercase; }
+  .pdf-summary-box .sum-cell .sum-val { font-size: 12pt; font-weight: 800; margin-top: 0.5mm; }
+  .pdf-summary-box .sum-cell .sum-sub { font-size: 7.5pt; color: #888; }
 
   .pdf-meta-footer {
     font-size: 7.5pt;
