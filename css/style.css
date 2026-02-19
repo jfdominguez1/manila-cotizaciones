@@ -1754,7 +1754,26 @@ label.rate-warning-label {
   font-variant-numeric: tabular-nums;
 }
 
-/* Subtotal Costo de producción */
+/* Columna de valor con total debajo */
+.value-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+.total-annotation {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--green);
+  font-variant-numeric: tabular-nums;
+  font-style: normal;
+  opacity: 0.85;
+}
+.total-annotation strong {
+  font-weight: 700;
+}
+
+/* Subtotal Costo de mercadería */
 .cost-summary-row.production-subtotal {
   background: var(--gray-100);
   border-top: 1px solid var(--gray-200);

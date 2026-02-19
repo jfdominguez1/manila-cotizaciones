@@ -564,8 +564,9 @@ function renderCommissionSection(container) {
       <div>
         <label>Base de cálculo</label>
         <select id="comm-base">
+          <option value="plant_exit" ${commission.base === 'plant_exit' ? 'selected' : ''}>% sobre precio salida planta</option>
+          <option value="price" ${commission.base === 'price' ? 'selected' : ''}>% sobre precio final venta</option>
           <option value="cost" ${commission.base === 'cost' ? 'selected' : ''}>% sobre costo total</option>
-          <option value="price" ${commission.base === 'price' ? 'selected' : ''}>% sobre precio venta</option>
         </select>
       </div>
       <div>
@@ -590,6 +591,19 @@ function renderCommissionSection(container) {
       recalculate();
     });
   });
+}
+
+// ============================================================
+// PRECIO SALIDA DE PLANTA — base para comisión "plant_exit"
+// Capas que forman el costo de producto terminado listo para despachar:
+// Materia Prima + Proceso en Planta + Materiales/Embalaje
+// ============================================================
+const PLANT_LAYERS = ['raw_material', 'processing', 'packaging'];
+
+function getPlantExitCost() {
+  return layers
+    .filter(l => PLANT_LAYERS.includes(l.id))
+    .reduce((sum, l) => sum + l.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0), 0);
 }
 
 // ============================================================
@@ -691,18 +705,19 @@ function recalculate() {
   let pricePerKg = 0;
 
   if (commission.base === 'cost') {
+    // Comisión sobre costo total
     commPerKg = totalCostPerKg * (commission.pct / 100) + commFixedPerKg;
-    const costWithComm = totalCostPerKg + commPerKg;
-    pricePerKg = costWithComm * (1 + marginPct);
+    pricePerKg = (totalCostPerKg + commPerKg) * (1 + marginPct);
+  } else if (commission.base === 'plant_exit') {
+    // Comisión sobre precio de salida de planta (MP + MO + Embalaje) × (1 + margen)
+    const plantExitPrice = getPlantExitCost() * (1 + marginPct);
+    commPerKg = plantExitPrice * (commission.pct / 100) + commFixedPerKg;
+    pricePerKg = totalCostPerKg * (1 + marginPct) + commPerKg;
   } else {
-    // Comisión sobre precio de venta → álgebra inversa
-    // price = (totalCost + commFixed) / (1 - commPct/100) * (1 + margin)
-    // Pero margen también va sobre costo, no precio...
-    // Resolución: price = (totalCost + commFixed) / (1 - commPct/100) → precio antes de margen
-    // Luego margin sobre ese precio? No — margen es siempre sobre costo.
-    // Fórmula: price = (totalCost + commFixed) / (1 - commPct/100) × (1 + margin)
-    const basePrice = commFixedPerKg + totalCostPerKg;
-    pricePerKg = basePrice * (1 + marginPct) / (1 - commission.pct / 100);
+    // Comisión sobre precio final de venta → álgebra inversa
+    // price = (totalCost × (1 + margin) + commFixed) / (1 - commPct/100)
+    const base = totalCostPerKg * (1 + marginPct) + commFixedPerKg;
+    pricePerKg = base / (1 - commission.pct / 100);
     commPerKg = pricePerKg * (commission.pct / 100) + commFixedPerKg;
   }
 
@@ -765,12 +780,21 @@ function onTargetPriceChange() {
 
   let newMargin;
   if (commission.base === 'cost') {
-    const commPerKg = totalCost * (commission.pct / 100) + commFixedPerKg;
-    const base = totalCost + commPerKg;
+    // precio = (costo + comisión_costo) × (1 + margen)
+    // precio = costo × (1 + commPct/100) × (1 + margen) + commFijo × (1 + margen)
+    const commRate = 1 + commission.pct / 100;
+    const base = totalCost * commRate + commFixedPerKg;
     newMargin = base > 0 ? (targetPrice / base - 1) * 100 : 0;
+  } else if (commission.base === 'plant_exit') {
+    // precio = totalCosto × (1 + margen) + plantExit × (1 + margen) × commPct/100 + commFijo
+    // precio = (1 + margen) × (totalCosto + plantExit × commPct/100) + commFijo
+    const plantExit = getPlantExitCost();
+    const base = totalCost + plantExit * (commission.pct / 100);
+    newMargin = base > 0 ? ((targetPrice - commFixedPerKg) / base - 1) * 100 : 0;
   } else {
-    const base = totalCost + commFixedPerKg;
-    newMargin = base > 0 ? (targetPrice * (1 - commission.pct / 100) / base - 1) * 100 : 0;
+    // precio × (1 - commPct/100) = totalCosto × (1 + margen) + commFijo
+    const netPrice = targetPrice * (1 - commission.pct / 100) - commFixedPerKg;
+    newMargin = totalCost > 0 ? (netPrice / totalCost - 1) * 100 : 0;
   }
 
   if (isFinite(newMargin) && newMargin >= -99) {
@@ -862,6 +886,14 @@ function renderSummary(layers, totalCost, commPerKg, marginPct, pricePerKg, volu
   const procTotal = layers.find(l => l.id === 'processing')?.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0) ?? 0;
   const productionSubtotal = mpTotal + procTotal;
 
+  // Totales en $ — "Costo de mercadería" (solo cuando hay volumen ingresado)
+  const hasVol = volumeKg > 0;
+  const mpRawAmt = hasVol ? mpTotal * effectiveYield * volumeKg : 0;  // costo bruto del pescado
+  const mpAdjAmt = hasVol ? mpTotal * volumeKg : 0;                   // costo MP ajustado por rdto
+  const procAmt  = hasVol ? procTotal * volumeKg : 0;                 // costo proceso total
+  const mercAmt  = mpAdjAmt + procAmt;                                 // costo de mercadería total
+  const fmtAmt = (v) => '$' + Math.round(v).toLocaleString('es-AR');
+
   layers.forEach(l => {
     const layerTotal = l.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0);
     if (layerTotal === 0 && l.items.length === 0) return;
@@ -872,20 +904,30 @@ function renderSummary(layers, totalCost, commPerKg, marginPct, pricePerKg, volu
         <span class="label">Materia Prima
           <em class="yield-annotation">$${mpRaw.toFixed(3)} ÷ ${(effectiveYield * 100).toFixed(1)}%</em>
         </span>
-        <span class="value">$${mpTotal.toFixed(3)}/kg</span>
+        <div class="value-stack">
+          <span class="value">$${mpTotal.toFixed(3)}/kg</span>
+          ${hasVol ? `<em class="total-annotation">${fmtAmt(mpRawAmt)} → <strong>${fmtAmt(mpAdjAmt)}</strong></em>` : ''}
+        </div>
       </div>`;
     } else {
+      const showTotal = (l.id === 'raw_material' || l.id === 'processing') && hasVol && layerTotal > 0;
+      const layerAmt  = l.id === 'processing' ? procAmt : (hasVol ? layerTotal * volumeKg : 0);
       html += `<div class="cost-summary-row">
         <span class="label">${l.name}</span>
-        <span class="value">$${layerTotal.toFixed(3)}/kg</span>
+        ${showTotal
+          ? `<div class="value-stack"><span class="value">$${layerTotal.toFixed(3)}/kg</span><em class="total-annotation">${fmtAmt(layerAmt)}</em></div>`
+          : `<span class="value">$${layerTotal.toFixed(3)}/kg</span>`}
       </div>`;
     }
 
-    // Subtotal de producción tras Proceso en Planta
+    // Subtotal de mercadería tras Proceso en Planta
     if (l.id === 'processing' && (mpTotal > 0 || procTotal > 0)) {
       html += `<div class="cost-summary-row production-subtotal">
-        <span class="label">↳ Costo de producción</span>
-        <span class="value">$${productionSubtotal.toFixed(3)}/kg</span>
+        <span class="label">↳ Costo Mercadería+MO</span>
+        <div class="value-stack">
+          <span class="value">$${productionSubtotal.toFixed(3)}/kg</span>
+          ${hasVol ? `<em class="total-annotation">${fmtAmt(mercAmt)}</em>` : ''}
+        </div>
       </div>`;
     }
   });
@@ -1205,7 +1247,8 @@ function buildInternalTable(calc = null) {
   if (commission.pct > 0 || commission.fixed_per_shipment || commission.fixed_per_quote) {
     const commRow = document.createElement('tr');
     commRow.className = 'layer-title';
-    commRow.innerHTML = `<td colspan="6">Comisión comercial (${commission.pct}% sobre ${commission.base === 'cost' ? 'costo' : 'precio venta'})</td>`;
+    const commBaseLabel = commission.base === 'plant_exit' ? 'precio salida de planta' : commission.base === 'cost' ? 'costo total' : 'precio final venta';
+    commRow.innerHTML = `<td colspan="6">Comisión comercial (${commission.pct}% sobre ${commBaseLabel})</td>`;
     tbody.appendChild(commRow);
   }
 
@@ -1218,6 +1261,16 @@ function buildInternalTable(calc = null) {
     const procTotal = layers.find(l => l.id === 'processing')?.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0) ?? 0;
     const productionSubtotal = mpTotal + procTotal;
 
+    // Totales en $ para PDF interno
+    const pdfVol    = parseNum(document.getElementById('volume-kg').value) || 0;
+    const pdfHasVol = pdfVol > 0;
+    const pdfMpRaw  = pdfHasVol ? mpTotal * effectiveYield * pdfVol : 0;
+    const pdfMpAdj  = pdfHasVol ? mpTotal * pdfVol : 0;
+    const pdfProc   = pdfHasVol ? procTotal * pdfVol : 0;
+    const pdfMerc   = pdfMpAdj + pdfProc;
+    const pdfFmt = (v) => '$' + Math.round(v).toLocaleString('es-AR');
+    const pdfTotalSpan = (v) => `<span style="font-size:6.5pt;opacity:.65"> (${pdfFmt(v)})</span>`;
+
     let html = '<div class="pdf-cost-breakdown-title">Resumen por capa</div>';
 
     layers.forEach(l => {
@@ -1228,19 +1281,22 @@ function buildInternalTable(calc = null) {
         const mpRaw = mpTotal * effectiveYield;
         html += `<div class="pdf-breakdown-row">
           <span class="bd-label">Materia Prima <em style="opacity:.65;font-size:7pt">($${mpRaw.toFixed(3)} ÷ ${(effectiveYield * 100).toFixed(1)}%)</em></span>
-          <span class="bd-val">$${mpTotal.toFixed(3)}/kg</span>
+          <span class="bd-val">$${mpTotal.toFixed(3)}/kg${pdfHasVol ? ` <span style="font-size:6.5pt;opacity:.65">(${pdfFmt(pdfMpRaw)} → ${pdfFmt(pdfMpAdj)})</span>` : ''}</span>
         </div>`;
       } else {
-        html += `<div class="pdf-breakdown-row"><span class="bd-label">${l.name}</span><span class="bd-val">$${layerTotal.toFixed(3)}/kg</span></div>`;
+        const showPdfTotal = (l.id === 'raw_material' || l.id === 'processing') && pdfHasVol && layerTotal > 0;
+        const pdfLayerAmt = l.id === 'processing' ? pdfProc : (pdfHasVol ? layerTotal * pdfVol : 0);
+        html += `<div class="pdf-breakdown-row"><span class="bd-label">${l.name}</span><span class="bd-val">$${layerTotal.toFixed(3)}/kg${showPdfTotal ? pdfTotalSpan(pdfLayerAmt) : ''}</span></div>`;
       }
 
       if (l.id === 'processing' && (mpTotal > 0 || procTotal > 0)) {
-        html += `<div class="pdf-breakdown-row production-subtotal-pdf"><span class="bd-label">↳ Costo de producción</span><span class="bd-val">$${productionSubtotal.toFixed(3)}/kg</span></div>`;
+        html += `<div class="pdf-breakdown-row production-subtotal-pdf"><span class="bd-label">↳ Costo Mercadería+MO</span><span class="bd-val">$${productionSubtotal.toFixed(3)}/kg${pdfHasVol ? pdfTotalSpan(pdfMerc) : ''}</span></div>`;
       }
     });
 
     if (commPerKg > 0) {
-      html += `<div class="pdf-breakdown-row"><span class="bd-label">Comisión (${commission.pct}% s/${commission.base === 'cost' ? 'costo' : 'precio'})</span><span class="bd-val">$${commPerKg.toFixed(3)}/kg</span></div>`;
+      const bLabel = commission.base === 'plant_exit' ? 'salida planta' : commission.base === 'cost' ? 'costo' : 'precio final';
+      html += `<div class="pdf-breakdown-row"><span class="bd-label">Comisión (${commission.pct}% s/${bLabel})</span><span class="bd-val">$${commPerKg.toFixed(3)}/kg</span></div>`;
     }
 
     const marginAmount = pricePerKg - totalCostPerKg - commPerKg;
