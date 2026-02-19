@@ -1,7 +1,7 @@
 # Arquitectura y Diseño Funcional — Cotizaciones Manila
 
 > Documento técnico de la aplicación interna de cotizaciones de Manila S.A.
-> v1.6 — Stack: Firebase + HTML/CSS/JS vanilla + GitHub Pages
+> v1.8 — Stack: Firebase + HTML/CSS/JS vanilla + GitHub Pages
 
 ---
 
@@ -116,7 +116,7 @@ Define las constantes de dominio del negocio. No tiene lógica, solo datos. Expo
 | `CERTIFICATIONS` | `{bap, oie, ecocert}` — nombre, descripción, logo |
 | `INCOTERMS` | Array de 6 incoterms con id, nombre y descripción |
 | `COST_LAYERS` | 6 capas de costo con `id`, `name`, `applies_yield` |
-| `COST_UNITS` | 5 unidades de costo con `id`, `label`, `needs_unit_kg` |
+| `COST_UNITS` | 6 unidades de costo con `id`, `label` (`/kg`, `/unidad`, etc.), `needs_unit_kg` |
 | `CONTACT` | Datos de la empresa para footer del PDF |
 
 ---
@@ -160,14 +160,26 @@ init()
 - El counter `quote_next` se lee y se incrementa en una sola operación (seguro para uso concurrente)
 - Formato: `COT-{año}-{número padded a 3 dígitos}` → `COT-2026-001`
 
+**Funciones de cálculo de costo por ítem:**
+
+| Función | Descripción |
+|---|---|
+| `calcItemCostPerKgRaw(item, volumeKg, numShipments)` | Devuelve el costo/kg en la **moneda propia** del ítem (ARS o USD), sin convertir |
+| `calcItemCostPerKg(item, volumeKg, numShipments, usdArsRate)` | Llama a `calcItemCostPerKgRaw` y, si `item.currency === 'ARS'`, divide por `usdArsRate` para devolver USD |
+| `hasArsItems()` | Devuelve `true` si algún ítem de cualquier capa tiene `currency === 'ARS'` |
+
 **Ciclo de recálculo (`recalculate`):**
 ```
-Lee inputs del DOM (volume_kg, num_shipments, yield_pct, margin_pct)
+Lee inputs del DOM (volume_kg, num_shipments, yield_pct, margin_pct, usd_ars_rate)
+  ↓
+Si hasArsItems() → valida que usd_ars_rate > 0
+  → si no: marca campo TC en rojo (rate-warning), muestra advertencia en resumen
   ↓
 Para cada capa → para cada ítem:
-  calcItemCostPerKg() → normalización a $/kg
+  calcItemCostPerKgRaw() → costo en moneda propia (para display)
+  calcItemCostPerKg()    → costo en USD (para acumular)
   si applies_yield: dividir por yieldPct
-  actualizar display del ítem
+  si item.currency === 'ARS': muestra "ARS $X/kg → $Y/kg" (o "⚠ sin TC")
   acumular en layerTotal
   ↓
 totalCostPerKg = Σ layerTotals
@@ -183,14 +195,14 @@ si commission.base === 'price':
   ↓
 pricePerLb = price / 2.20462
   ↓
-Actualiza DOM: totales por capa, comm total, resumen, precio highlight
+Actualiza DOM: totales por capa, comm total, resumen (con nota TC), precio highlight
 ```
 
 **Guardar (`buildQuoteObject`):**
 Genera el objeto snapshot completo para Firestore. Incluye:
-- Todos los metadatos (cliente, marca, incoterm, volumen, etc.)
+- Todos los metadatos (cliente, marca, incoterm, volumen, `usd_ars_rate`, etc.)
 - Snapshot completo del producto (copia inmutable)
-- Snapshot completo de cada capa con todos sus ítems y `cost_per_kg_calc`
+- Snapshot completo de cada capa con todos sus ítems, `currency` y `cost_per_kg_calc`
 - Estado de la comisión
 - Resultados calculados (`total_cost_per_kg`, `price_per_kg`, `price_per_lb`)
 
@@ -236,10 +248,13 @@ CRUD de dos colecciones: `products` y `cost_tables`.
 - Formulario colapsable con photo picker
 - Photo picker: galería de imágenes estáticas de `/img/`
 - Al guardar: `setDoc()` con ID derivado del nombre (o el existente si es edición)
-- Sugerencias de descripción: genera 5 textos en inglés combinando los campos del formulario
+- Especie default pre-cargada: `"Rainbow Trout (Oncorhynchus mykiss)"`
+- Sugerencias de descripción en inglés: genera 5 chips combinando nombre, presentación, especie, corte, calibre y certificaciones del formulario; click en chip inserta el texto en el campo de notas
 
 **Tablas de costos:**
 - Misma estructura CRUD
+- Campo **Moneda** (USD / ARS $) — se guarda en el documento y se muestra con badge de color (azul USD, amarillo ARS $) en la lista
+- Al traer un ítem de tabla a una cotización, la moneda se copia automáticamente
 - ID: nombre-normalizado + timestamp (para evitar colisiones)
 - Toggle del campo `kg/unidad` según la unidad seleccionada
 
@@ -274,6 +289,7 @@ CRUD de dos colecciones: `products` y `cost_tables`.
   "id": "flete-bhc-eze-1700000000000",
   "name": "Flete BHC → EZE",
   "layer": "transport",
+  "currency": "ARS",
   "variable_value": 0,
   "variable_unit": "kg",
   "variable_unit_kg": null,
@@ -282,6 +298,8 @@ CRUD de dos colecciones: `products` y `cost_tables`.
   "notes": "Transporte frigorífico Bariloche → Buenos Aires"
 }
 ```
+
+> `currency`: `"USD"` (default) o `"ARS"`. Los ítems ARS nunca aparecen en documentos para el cliente; se convierten a USD usando el tipo de cambio del formulario.
 
 ### Colección `quotes`
 
@@ -306,6 +324,7 @@ CRUD de dos colecciones: `products` y `cost_tables`.
   "volume_kg": 10000,
   "num_shipments": 2,
   "yield_pct": 50,
+  "usd_ars_rate": 1450,
   "valid_days": 15,
   "lead_time": "7-10 días desde confirmación",
   "client_comments": "Payment: 30% advance, 70% against BL",
@@ -324,7 +343,8 @@ CRUD de dos colecciones: `products` y `cost_tables`.
           "name": "Pescado en pie",
           "source": "manual",
           "table_ref": null,
-          "variable_value": 3.50,
+          "currency": "ARS",
+          "variable_value": 5075,
           "variable_unit": "kg",
           "variable_unit_kg": null,
           "fixed_per_shipment": 0,
