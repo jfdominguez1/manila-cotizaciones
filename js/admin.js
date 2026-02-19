@@ -11,6 +11,102 @@ let costItems = [];
 let editingProductId = null;
 let editingCostId = null;
 let selectedPhoto = '';
+let caliberEntries = [];  // [{ min, max, unit }]
+
+// Conversión de unidades a gramos
+const CAL_TO_G = { g: 1, kg: 1000, oz: 28.3495, lb: 453.592 };
+
+function formatCaliberEntry(min, max, unit) {
+  const minVal = parseFloat(String(min).replace(',', '.'));
+  const maxVal = parseFloat(String(max).replace(',', '.'));
+  if (!minVal || !maxVal) return null;
+
+  const minG = minVal * CAL_TO_G[unit];
+  const maxG = maxVal * CAL_TO_G[unit];
+
+  // Lado métrico
+  let metric;
+  if (minG >= 1000) {
+    metric = `${(minG / 1000).toFixed(1)}-${(maxG / 1000).toFixed(1)} kg`;
+  } else {
+    metric = `${Math.round(minG)}-${Math.round(maxG)} g`;
+  }
+
+  // Lado imperial
+  const minOz = minG / 28.3495;
+  const maxOz = maxG / 28.3495;
+  let imperial;
+  if (minOz >= 16) {
+    imperial = `${(minOz / 16).toFixed(1)}-${(maxOz / 16).toFixed(1)} lb`;
+  } else {
+    imperial = `${minOz.toFixed(1)}-${maxOz.toFixed(1)} oz`;
+  }
+
+  // Mostrar unidad ingresada primero
+  if (unit === 'g' || unit === 'kg') {
+    return `${metric} · ${imperial}`;
+  } else {
+    const imperialExact = `${minVal}-${maxVal} ${unit}`;
+    return `${imperialExact} · ${metric}`;
+  }
+}
+
+function getCaliberDisplayString() {
+  return caliberEntries
+    .map(e => formatCaliberEntry(e.min, e.max, e.unit))
+    .filter(Boolean)
+    .join(', ');
+}
+
+function renderCaliberBuilder() {
+  const container = document.getElementById('caliber-builder');
+  if (!container) return;
+  if (caliberEntries.length === 0) {
+    container.innerHTML = '<div class="caliber-empty">Sin calibres definidos</div>';
+    return;
+  }
+  container.innerHTML = '';
+  caliberEntries.forEach((entry, idx) => {
+    const row = document.createElement('div');
+    row.className = 'caliber-entry';
+
+    const preview = formatCaliberEntry(entry.min, entry.max, entry.unit);
+
+    row.innerHTML = `
+      <input type="text" inputmode="decimal" placeholder="min" class="cal-min" value="${entry.min ?? ''}">
+      <span class="cal-dash">—</span>
+      <input type="text" inputmode="decimal" placeholder="max" class="cal-max" value="${entry.max ?? ''}">
+      <select class="cal-unit">
+        <option value="g"  ${entry.unit === 'g'  ? 'selected' : ''}>g</option>
+        <option value="kg" ${entry.unit === 'kg' ? 'selected' : ''}>kg</option>
+        <option value="oz" ${entry.unit === 'oz' ? 'selected' : ''}>oz</option>
+        <option value="lb" ${entry.unit === 'lb' ? 'selected' : ''}>lb</option>
+      </select>
+      <span class="cal-preview">${preview ?? '—'}</span>
+      <button type="button" class="btn-icon cal-remove" title="Eliminar">✕</button>
+    `;
+
+    // Eventos
+    row.querySelector('.cal-min').addEventListener('input', e => {
+      caliberEntries[idx].min = e.target.value;
+      row.querySelector('.cal-preview').textContent = formatCaliberEntry(caliberEntries[idx].min, caliberEntries[idx].max, caliberEntries[idx].unit) ?? '—';
+    });
+    row.querySelector('.cal-max').addEventListener('input', e => {
+      caliberEntries[idx].max = e.target.value;
+      row.querySelector('.cal-preview').textContent = formatCaliberEntry(caliberEntries[idx].min, caliberEntries[idx].max, caliberEntries[idx].unit) ?? '—';
+    });
+    row.querySelector('.cal-unit').addEventListener('change', e => {
+      caliberEntries[idx].unit = e.target.value;
+      row.querySelector('.cal-preview').textContent = formatCaliberEntry(caliberEntries[idx].min, caliberEntries[idx].max, caliberEntries[idx].unit) ?? '—';
+    });
+    row.querySelector('.cal-remove').addEventListener('click', () => {
+      caliberEntries.splice(idx, 1);
+      renderCaliberBuilder();
+    });
+
+    container.appendChild(row);
+  });
+}
 
 const PRODUCT_PHOTOS = [
   'img/fillet-white.jpg',
@@ -128,6 +224,13 @@ function bindProductForm() {
   document.getElementById('btn-save-product').addEventListener('click', saveProduct);
   document.getElementById('btn-delete-product').addEventListener('click', deleteProduct);
   document.getElementById('btn-suggest-desc').addEventListener('click', renderDescriptionSuggestions);
+  document.getElementById('btn-add-caliber').addEventListener('click', () => {
+    caliberEntries.push({ min: '', max: '', unit: 'oz' });
+    renderCaliberBuilder();
+    // Focus en el input min del último entry
+    const entries = document.querySelectorAll('.caliber-entry');
+    entries[entries.length - 1]?.querySelector('.cal-min')?.focus();
+  });
 }
 
 function generateDescriptionSuggestions() {
@@ -135,7 +238,7 @@ function generateDescriptionSuggestions() {
   const presentation= document.getElementById('p-presentation').value.trim();
   const species     = document.getElementById('p-species').value.trim() || 'Rainbow Trout (Oncorhynchus mykiss)';
   const trim        = document.getElementById('p-trim').value.trim();
-  const caliber     = document.getElementById('p-caliber').value.trim();
+  const caliber     = getCaliberDisplayString();
   const certs       = [...document.querySelectorAll('.cert-check:checked')].map(cb => cb.value);
 
   const pres     = presentation || name || 'Fillet';
@@ -187,7 +290,8 @@ function openProductForm(productId) {
     document.getElementById('p-presentation').value = p.presentation ?? '';
     document.getElementById('p-species').value = p.specs?.species ?? '';
     document.getElementById('p-trim').value = p.specs?.trim_cut ?? '';
-    document.getElementById('p-caliber').value = p.specs?.caliber ?? '';
+    // Calibres: restaurar desde array estructurado (nuevo) o dejar vacío (legacy string se descarta)
+    caliberEntries = (p.specs?.calibers ?? []).map(e => ({ ...e }));
     document.getElementById('p-yield').value = p.default_yield_pct ?? '';
     renderPhotoPicker(p.photo ?? '');
     document.getElementById('p-order').value = p.order ?? 0;
@@ -202,7 +306,7 @@ function openProductForm(productId) {
     document.getElementById('p-presentation').value = '';
     document.getElementById('p-species').value = 'Rainbow Trout (Oncorhynchus mykiss)';
     document.getElementById('p-trim').value = '';
-    document.getElementById('p-caliber').value = '';
+    caliberEntries = [];
     document.getElementById('p-yield').value = '50';
     renderPhotoPicker('');
     document.getElementById('p-order').value = products.length;
@@ -210,6 +314,7 @@ function openProductForm(productId) {
     document.querySelectorAll('.cert-check').forEach(cb => cb.checked = false);
   }
 
+  renderCaliberBuilder();
   panel.classList.add('open');
   document.getElementById('p-name').focus();
 }
@@ -217,6 +322,7 @@ function openProductForm(productId) {
 function closeProductForm() {
   document.getElementById('product-form-panel').classList.remove('open');
   editingProductId = null;
+  caliberEntries = [];
 }
 
 async function saveProduct() {
@@ -233,7 +339,8 @@ async function saveProduct() {
     specs: {
       species: document.getElementById('p-species').value.trim(),
       trim_cut: document.getElementById('p-trim').value.trim(),
-      caliber: document.getElementById('p-caliber').value.trim()
+      calibers: caliberEntries.filter(e => e.min && e.max),  // array estructurado
+      caliber: getCaliberDisplayString()                      // string para PDF
     },
     default_yield_pct: parseNum(document.getElementById('p-yield').value) || 50,
     photo: selectedPhoto,

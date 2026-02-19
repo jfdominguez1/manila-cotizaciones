@@ -1669,6 +1669,61 @@ label.rate-warning-label {
 .empty-state .empty-icon { font-size: 36px; margin-bottom: 10px; }
 
 /* ============================================================
+   CALIBRE BUILDER — admin de productos
+   ============================================================ */
+.caliber-field { grid-column: 1 / -1; }
+.caliber-builder { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
+.caliber-empty { font-size: 12px; color: var(--gray-400); padding: 6px 0; }
+
+.caliber-entry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+}
+.caliber-entry .cal-min,
+.caliber-entry .cal-max {
+  width: 62px;
+  text-align: center;
+  padding: 4px 6px;
+  border: 1px solid var(--gray-300);
+  border-radius: 4px;
+  font-size: 13px;
+}
+.caliber-entry .cal-dash { color: var(--gray-400); font-weight: 500; }
+.caliber-entry .cal-unit {
+  padding: 4px 6px;
+  border: 1px solid var(--gray-300);
+  border-radius: 4px;
+  font-size: 13px;
+  background: #fff;
+}
+.caliber-entry .cal-preview {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--blue);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  padding-right: 4px;
+}
+.btn-add-caliber {
+  align-self: flex-start;
+  background: none;
+  border: 1px dashed var(--gray-300);
+  border-radius: var(--radius);
+  color: var(--gray-500);
+  padding: 5px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.btn-add-caliber:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ============================================================
    YIELD EFECTIVO — header Proceso en Planta
    ============================================================ */
 .layer-yield-effective {

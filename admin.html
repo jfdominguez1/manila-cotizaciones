@@ -62,9 +62,10 @@
           <label>Corte / Trim</label>
           <input type="text" id="p-trim" placeholder="Trim D — Skin On, Pin Bone Out">
         </div>
-        <div class="admin-form-field">
+        <div class="admin-form-field caliber-field" style="grid-column:1/-1">
           <label>Calibres disponibles</label>
-          <input type="text" id="p-caliber" placeholder="4-6 oz, 6-8 oz, 8-10 oz">
+          <div class="caliber-builder" id="caliber-builder"></div>
+          <button type="button" id="btn-add-caliber" class="btn-add-caliber">＋ Agregar calibre</button>
         </div>
         <div class="admin-form-field">
           <label>Rendimiento por defecto (%)</label>
@@ -197,6 +198,6 @@
 
 </div>
 
-<script type="module" src="js/admin.js?v=17"></script>
+<script type="module" src="js/admin.js?v=18"></script>
 </body>
 </html>
