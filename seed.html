@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cotizaciones Manila — Cargar datos de ejemplo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .seed-page { max-width: 600px; margin: 60px auto; padding: 0 20px; }
+    .seed-page h1 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+    .seed-page p { color: var(--gray-500); font-size: 13px; margin-bottom: 32px; line-height: 1.6; }
+    .seed-card { background: #fff; border: 1px solid var(--gray-200); border-radius: 10px; padding: 24px; margin-bottom: 16px; }
+    .seed-card h2 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+    .seed-card p { margin-bottom: 16px; font-size: 12px; }
+    .seed-log { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 6px; padding: 12px 16px; font-size: 12px; font-family: monospace; min-height: 60px; margin-top: 12px; color: var(--gray-700); white-space: pre-wrap; }
+    .status-ok { color: #2d7a40; }
+    .status-err { color: var(--orange); }
+  </style>
+</head>
+<body>
+<nav class="topnav">
+  <img src="img/logo-manila.png" alt="Manila" class="nav-logo">
+  <span class="nav-title">Cotizaciones</span>
+  <div class="nav-links">
+    <a href="index.html">Dashboard</a>
+    <a href="quote.html">Nueva Cotización</a>
+    <a href="history.html">Historial</a>
+    <a href="admin.html">Admin</a>
+  </div>
+  <div class="nav-right">
+    <span class="nav-user" id="nav-user"></span>
+    <button class="btn-logout" id="btn-logout">Salir</button>
+  </div>
+</nav>
+
+<div class="seed-page">
+  <h1>Datos de ejemplo</h1>
+  <p>
+    Cargá datos de prueba en Firebase para poder explorar la app.
+    Todos los registros llevan el prefijo <strong>EXAM</strong> para identificarlos fácilmente.
+    Podés eliminarlos desde Admin una vez que tengas datos reales.
+  </p>
+
+  <div class="seed-card">
+    <h2>📦 Productos de ejemplo (3)</h2>
+    <p>EXAM — Fresh Fillet Natural, Frozen Fillet Color, Hot Smoked Fillet</p>
+    <button class="btn-primary" id="btn-seed-products">Cargar productos</button>
+    <div class="seed-log" id="log-products">Listo para cargar...</div>
+  </div>
+
+  <div class="seed-card">
+    <h2>💰 Tablas de costos de ejemplo (8 ítems)</h2>
+    <p>EXAM — Costos de referencia para todas las capas (MP, proceso, packaging, flete, export, comisión)</p>
+    <button class="btn-primary" id="btn-seed-costs">Cargar tablas de costos</button>
+    <div class="seed-log" id="log-costs">Listo para cargar...</div>
+  </div>
+
+  <div class="seed-card">
+    <h2>📋 Cotización de ejemplo (1)</h2>
+    <p>EXAM — Cotización FOB confirmada con detalle completo de costos para ver el historial y el PDF</p>
+    <button class="btn-primary" id="btn-seed-quote">Cargar cotización</button>
+    <div class="seed-log" id="log-quote">Listo para cargar...</div>
+  </div>
+
+  <div class="seed-card">
+    <h2>🗑 Limpiar datos de ejemplo</h2>
+    <p>Elimina todos los registros con prefijo EXAM de Firestore.</p>
+    <button class="btn-danger" id="btn-clean">Eliminar datos EXAM</button>
+    <div class="seed-log" id="log-clean">—</div>
+  </div>
+</div>
+
+<script type="module">
+  import { requireAuth, logout } from './js/auth.js';
+  import { db } from './js/firebase.js';
+  import {
+    collection, doc, setDoc, getDocs, deleteDoc, runTransaction
+  } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+
+  const user = await requireAuth();
+  document.getElementById('nav-user').textContent = user.email;
+  document.getElementById('btn-logout').addEventListener('click', logout);
+
+  function log(id, msg, isErr = false) {
+    const el = document.getElementById(id);
+    el.innerHTML += `<span class="${isErr ? 'status-err' : 'status-ok'}">${msg}\n</span>`;
+    el.scrollTop = el.scrollHeight;
+  }
+
+  // ============================================================
+  // PRODUCTOS
+  // ============================================================
+  const EXAM_PRODUCTS = [
+    {
+      id: 'exam-fresh-fillet-natural',
+      name: 'EXAM — Fresh Fillet Natural',
+      presentation: 'Fillet',
+      specs: {
+        species: 'Oncorhynchus mykiss (Rainbow Trout)',
+        trim_cut: 'Trim D — Skin On, Pin Bone Out',
+        caliber: '4-6 oz, 6-8 oz, 8-10 oz'
+      },
+      default_yield_pct: 50,
+      photo: '',
+      order: 90,
+      notes: 'Filet fresco, sin colorante, empaque individual al vacío',
+      certifications: ['bap', 'oie', 'ecocert']
+    },
+    {
+      id: 'exam-frozen-fillet-color',
+      name: 'EXAM — Frozen Fillet Color',
+      presentation: 'Fillet',
+      specs: {
+        species: 'Oncorhynchus mykiss (Rainbow Trout)',
+        trim_cut: 'Trim D — Skin On, Pin Bone Out',
+        caliber: '6-8 oz, 8-10 oz, 10-12 oz'
+      },
+      default_yield_pct: 50,
+      photo: '',
+      order: 91,
+      notes: 'Filet congelado IQF, con colorante natural Carofill',
+      certifications: ['bap', 'oie']
+    },
+    {
+      id: 'exam-hot-smoked-fillet',
+      name: 'EXAM — Hot Smoked Fillet',
+      presentation: 'Smoked',
+      specs: {
+        species: 'Oncorhynchus mykiss (Rainbow Trout)',
+        trim_cut: 'Skin On, Boneless',
+        caliber: '100-150g, 150-200g'
+      },
+      default_yield_pct: 38,
+      photo: '',
+      order: 92,
+      notes: 'Ahumado en caliente, envasado al vacío, shelf life 45 días refrigerado',
+      certifications: ['bap', 'ecocert']
+    }
+  ];
+
+  document.getElementById('btn-seed-products').addEventListener('click', async () => {
+    document.getElementById('log-products').textContent = '';
+    for (const p of EXAM_PRODUCTS) {
+      try {
+        await setDoc(doc(db, 'products', p.id), p);
+        log('log-products', `✓ ${p.name}`);
+      } catch (e) {
+        log('log-products', `✗ ${p.name}: ${e.message}`, true);
+      }
+    }
+    log('log-products', '\n→ Listo. Verificá en Admin → Productos.');
+  });
+
+  // ============================================================
+  // TABLAS DE COSTOS
+  // ============================================================
+  const EXAM_COSTS = [
+    {
+      id: 'exam-pescado-vivo-alicura',
+      layer: 'raw_material',
+      name: 'EXAM — Pescado vivo Alicura',
+      variable_value: 3.20,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'Precio referencia Mar 2026 — ajustar por lote'
+    },
+    {
+      id: 'exam-proceso-planta-filet',
+      layer: 'processing',
+      name: 'EXAM — Proceso planta (filet)',
+      variable_value: 0.85,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'MO + energía + agua + depreciación maquinaria'
+    },
+    {
+      id: 'exam-bolsa-vacio-individual',
+      layer: 'packaging',
+      name: 'EXAM — Bolsa vacío individual',
+      variable_value: 0.18,
+      variable_unit: 'unit',
+      variable_unit_kg: 0.25,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'Bolsa cryovac 250g aprox — precio por unidad'
+    },
+    {
+      id: 'exam-caja-master-10kg',
+      layer: 'packaging',
+      name: 'EXAM — Caja master 10kg',
+      variable_value: 1.20,
+      variable_unit: 'box',
+      variable_unit_kg: 10,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'Caja doble corrugado + liner plástico'
+    },
+    {
+      id: 'exam-flete-bhc-eze',
+      layer: 'transport',
+      name: 'EXAM — Flete BHC → EZE',
+      variable_value: 0,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 1200,
+      fixed_per_quote: 0,
+      notes: 'Camión frigorífico Bariloche → Ezeiza, precio fijo por viaje'
+    },
+    {
+      id: 'exam-despachante-exportacion',
+      layer: 'export',
+      name: 'EXAM — Despachante + certificados',
+      variable_value: 0,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 850,
+      notes: 'Despacho de exportación + certificado de origen + fitosanitario'
+    },
+    {
+      id: 'exam-gastos-portuarios-fob',
+      layer: 'export',
+      name: 'EXAM — Gastos portuarios (FOB)',
+      variable_value: 0,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 320,
+      fixed_per_quote: 0,
+      notes: 'Terminal handling + fumigación por embarque'
+    },
+    {
+      id: 'exam-comision-broker-usa',
+      layer: 'other',
+      name: 'EXAM — Comisión broker USA',
+      variable_value: 0,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 500,
+      fixed_per_quote: 0,
+      notes: 'Monto fijo por embarque — ver sección Comisión para el %'
+    }
+  ];
+
+  document.getElementById('btn-seed-costs').addEventListener('click', async () => {
+    document.getElementById('log-costs').textContent = '';
+    for (const c of EXAM_COSTS) {
+      try {
+        await setDoc(doc(db, 'cost_tables', c.id), c);
+        log('log-costs', `✓ ${c.name}`);
+      } catch (e) {
+        log('log-costs', `✗ ${c.name}: ${e.message}`, true);
+      }
+    }
+    log('log-costs', '\n→ Listo. Verificá en Admin → Tablas de costos.');
+  });
+
+  // ============================================================
+  // COTIZACIÓN DE EJEMPLO
+  // ============================================================
+  document.getElementById('btn-seed-quote').addEventListener('click', async () => {
+    document.getElementById('log-quote').textContent = '';
+
+    // Asignar número
+    let quoteNum = 'COT-EXAM-001';
+    try {
+      const counterRef = doc(db, 'metadata', 'counters');
+      await runTransaction(db, async tx => {
+        const snap = await tx.get(counterRef);
+        const next = snap.exists() ? (snap.data().quote_next ?? 1) : 1;
+        quoteNum = `COT-${new Date().getFullYear()}-${String(next).padStart(3, '0')}`;
+        tx.set(counterRef, { quote_next: next + 1 }, { merge: true });
+      });
+    } catch(e) { /* usa default */ }
+
+    const now = new Date().toISOString();
+    const product = EXAM_PRODUCTS[0]; // Fresh Fillet Natural
+
+    const examQuote = {
+      quote_number: quoteNum,
+      status: 'confirmed',
+      created_by: user.email,
+      created_at: now,
+      confirmed_at: now,
+
+      brand: 'andes',
+      client: {
+        name: 'EXAM — Fresh Seafood Distributors LLC',
+        country: 'USA',
+        contact: 'EXAM — John Smith (john@freshseafood.com)'
+      },
+      incoterm: 'FOB',
+      valid_days: 15,
+      lead_time: '7-10 días desde confirmación de orden',
+      notes: 'EXAM — Cotización de prueba. Entrega en Miami. Requiere certificado BAP.',
+
+      product: { ...product },
+      volume_kg: 5000,
+      num_shipments: 2,
+      shipments: [{ kg: 2500 }, { kg: 2500 }],
+      yield_pct: 50,
+
+      cost_layers: [
+        {
+          layer_id: 'raw_material',
+          layer_name: 'Materia Prima',
+          applies_yield: true,
+          items: [
+            {
+              name: 'Pescado vivo Alicura',
+              source: 'table',
+              table_ref: 'exam-pescado-vivo-alicura',
+              variable_value: 3.20,
+              variable_unit: 'kg',
+              variable_unit_kg: null,
+              fixed_per_shipment: 0,
+              fixed_per_quote: 0,
+              cost_per_kg_calc: 6.40,  // 3.20 / 0.50 rendimiento
+              notes: ''
+            }
+          ],
+          total_per_kg: 6.40
+        },
+        {
+          layer_id: 'processing',
+          layer_name: 'Proceso en Planta',
+          applies_yield: false,
+          items: [
+            {
+              name: 'Proceso planta (filet)',
+              source: 'table',
+              table_ref: 'exam-proceso-planta-filet',
+              variable_value: 0.85,
+              variable_unit: 'kg',
+              variable_unit_kg: null,
+              fixed_per_shipment: 0,
+              fixed_per_quote: 0,
+              cost_per_kg_calc: 0.85,
+              notes: ''
+            }
+          ],
+          total_per_kg: 0.85
+        },
+        {
+          layer_id: 'packaging',
+          layer_name: 'Materiales y Embalaje',
+          applies_yield: false,
+          items: [
+            {
+              name: 'Bolsa vacío individual',
+              source: 'table',
+              table_ref: 'exam-bolsa-vacio-individual',
+              variable_value: 0.18,
+              variable_unit: 'unit',
+              variable_unit_kg: 0.25,
+              fixed_per_shipment: 0,
+              fixed_per_quote: 0,
+              cost_per_kg_calc: 0.72,  // 0.18 / 0.25
+              notes: ''
+            },
+            {
+              name: 'Caja master 10kg',
+              source: 'table',
+              table_ref: 'exam-caja-master-10kg',
+              variable_value: 1.20,
+              variable_unit: 'box',
+              variable_unit_kg: 10,
+              fixed_per_shipment: 0,
+              fixed_per_quote: 0,
+              cost_per_kg_calc: 0.12,  // 1.20 / 10
+              notes: ''
+            }
+          ],
+          total_per_kg: 0.84
+        },
+        {
+          layer_id: 'transport',
+          layer_name: 'Transporte Interno',
+          applies_yield: false,
+          items: [
+            {
+              name: 'Flete BHC → EZE',
+              source: 'table',
+              table_ref: 'exam-flete-bhc-eze',
+              variable_value: 0,
+              variable_unit: 'kg',
+              variable_unit_kg: null,
+              fixed_per_shipment: 1200,
+              fixed_per_quote: 0,
+              cost_per_kg_calc: 0.48,  // (1200 × 2) / 5000
+              notes: ''
+            }
+          ],
+          total_per_kg: 0.48
+        },
+        {
+          layer_id: 'export',
+          layer_name: 'Costos de Exportación',
+          applies_yield: false,
+          items: [
+            {
+              name: 'Despachante + certificados',
+              source: 'table',
+              table_ref: 'exam-despachante-exportacion',
+              variable_value: 0,
+              variable_unit: 'kg',
+              variable_unit_kg: null,
+              fixed_per_shipment: 0,
+              fixed_per_quote: 850,
+              cost_per_kg_calc: 0.17,  // 850 / 5000
+              notes: ''
+            },
+            {
+              name: 'Gastos portuarios (FOB)',
+              source: 'table',
+              table_ref: 'exam-gastos-portuarios-fob',
+              variable_value: 0,
+              variable_unit: 'kg',
+              variable_unit_kg: null,
+              fixed_per_shipment: 320,
+              fixed_per_quote: 0,
+              cost_per_kg_calc: 0.128,  // (320 × 2) / 5000
+              notes: ''
+            }
+          ],
+          total_per_kg: 0.298
+        },
+        {
+          layer_id: 'other',
+          layer_name: 'Otros',
+          applies_yield: false,
+          items: [],
+          total_per_kg: 0
+        }
+      ],
+
+      commission: {
+        pct: 3,
+        base: 'price',
+        fixed_per_shipment: 500,
+        fixed_per_quote: 0
+      },
+
+      total_cost_per_kg: 8.848,
+      margin_pct: 22,
+      price_per_kg: 12.15,
+      price_per_lb: 5.51
+    };
+
+    try {
+      await setDoc(doc(db, 'quotes', quoteNum), examQuote);
+      log('log-quote', `✓ Cotización ${quoteNum} creada`);
+      log('log-quote', `  Cliente: ${examQuote.client.name}`);
+      log('log-quote', `  Precio: $${examQuote.price_per_kg}/kg — $${examQuote.price_per_lb}/lb`);
+      log('log-quote', `  Incoterm: FOB | Margen: ${examQuote.margin_pct}%`);
+      log('log-quote', '\n→ Vela en Historial para ver el detalle completo.');
+    } catch (e) {
+      log('log-quote', `✗ Error: ${e.message}`, true);
+    }
+  });
+
+  // ============================================================
+  // LIMPIAR
+  // ============================================================
+  document.getElementById('btn-clean').addEventListener('click', async () => {
+    if (!confirm('¿Eliminar TODOS los registros con prefijo EXAM? Esta acción no se puede deshacer.')) return;
+    document.getElementById('log-clean').textContent = '';
+
+    const collections = [
+      { name: 'products', prefix: 'exam-' },
+      { name: 'cost_tables', prefix: 'exam-' },
+      { name: 'quotes', prefix: null }  // filtrar por campo
+    ];
+
+    for (const col of collections) {
+      const snap = await getDocs(collection(db, col.name));
+      for (const d of snap.docs) {
+        const data = d.data();
+        const shouldDelete = col.prefix
+          ? d.id.startsWith(col.prefix)
+          : (data.client?.name ?? '').startsWith('EXAM');
+        if (shouldDelete) {
+          await deleteDoc(doc(db, col.name, d.id));
+          log('log-clean', `✓ Eliminado: ${col.name}/${d.id}`);
+        }
+      }
+    }
+    log('log-clean', '\n→ Datos EXAM eliminados.');
+  });
+</script>
+</body>
+</html>

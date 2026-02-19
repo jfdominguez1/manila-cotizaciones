@@ -558,17 +558,51 @@ body {
   border-top: 1px solid var(--gray-100);
 }
 
-/* Ítem de costo */
+/* Ítem de costo — tarjeta de 2 filas */
 .cost-item {
-  display: grid;
-  grid-template-columns: minmax(120px, 1.5fr) 80px 90px 90px 70px 70px 70px 36px;
-  gap: 6px;
-  align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--gray-100);
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
   font-size: 12px;
 }
-.cost-item:last-of-type { border-bottom: none; }
+.cost-item:last-of-type { margin-bottom: 0; }
+
+.cost-item-row1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.cost-item-row1 .item-name {
+  flex: 1;
+  min-width: 0;
+}
+.cost-item-row2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.cost-item-row2 .item-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cost-item-row2 .item-field label {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--gray-400);
+  white-space: nowrap;
+}
+.cost-item-row2 .item-field.field-value  { width: 80px; }
+.cost-item-row2 .item-field.field-unit   { width: 100px; }
+.cost-item-row2 .item-field.field-unitkg { width: 70px; }
+.cost-item-row2 .item-field.field-fship  { width: 80px; }
+.cost-item-row2 .item-field.field-fquote { width: 80px; }
 
 .cost-item input,
 .cost-item select {
@@ -587,27 +621,19 @@ body {
 .cost-item select:focus { border-color: var(--accent); }
 
 .cost-item .item-result {
-  font-size: 12px;
-  font-weight: 600;
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 700;
   color: var(--accent);
-  text-align: right;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  align-self: flex-end;
+  padding-bottom: 1px;
 }
-.cost-item .item-result.na { color: var(--gray-400); font-weight: 400; }
+.cost-item .item-result.na { color: var(--gray-400); font-weight: 400; font-size: 11px; }
 
-/* Header de columnas en items */
-.cost-items-header {
-  display: grid;
-  grid-template-columns: minmax(120px, 1.5fr) 80px 90px 90px 70px 70px 70px 36px;
-  gap: 6px;
-  padding: 8px 0 4px;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  color: var(--gray-400);
-}
+/* Header de columnas — ya no necesario con tarjetas */
+.cost-items-header { display: none; }
 
 /* Fuente: manual / tabla */
 .source-toggle {

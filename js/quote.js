@@ -305,26 +305,42 @@ function createItemRow(layerIdx, itemIdx) {
     `<option value="${u.id}" ${item.variable_unit === u.id ? 'selected' : ''}>${u.label}</option>`
   ).join('');
 
-  const tableOptions = costTables
-    .filter(t => t.layer === layers[layerIdx].id)
-    .map(t => `<option value="${t.id}">${t.name}</option>`)
-    .join('');
-
   const needsUnitKg = COST_UNITS.find(u => u.id === item.variable_unit)?.needs_unit_kg ?? false;
 
   row.innerHTML = `
-    <input type="text" placeholder="Concepto..." value="${item.name ?? ''}" data-field="name">
-    <div class="source-toggle">
-      <button class="${item.source !== 'table' ? 'active' : ''}" data-src="manual">Manual</button>
-      <button class="${item.source === 'table' ? 'active' : ''}" data-src="table">Tabla</button>
+    <div class="cost-item-row1">
+      <div class="item-name">
+        <input type="text" placeholder="Concepto..." value="${item.name ?? ''}" data-field="name">
+      </div>
+      <div class="source-toggle">
+        <button class="${item.source !== 'table' ? 'active' : ''}" data-src="manual">Manual</button>
+        <button class="${item.source === 'table' ? 'active' : ''}" data-src="table">Tabla</button>
+      </div>
+      <button class="btn-icon" title="Eliminar">✕</button>
     </div>
-    <input type="number" placeholder="0.00" value="${item.variable_value ?? ''}" step="0.01" min="0" data-field="variable_value">
-    <select data-field="variable_unit">${unitOptions}</select>
-    <input type="number" placeholder="kg/u" value="${item.variable_unit_kg ?? ''}" step="0.01" min="0"
-           data-field="variable_unit_kg" style="display:${needsUnitKg ? '' : 'none'}">
-    <input type="number" placeholder="0" value="${item.fixed_per_shipment ?? ''}" step="0.01" min="0" data-field="fixed_per_shipment">
-    <input type="number" placeholder="0" value="${item.fixed_per_quote ?? ''}" step="0.01" min="0" data-field="fixed_per_quote">
-    <button class="btn-icon" title="Eliminar">✕</button>
+    <div class="cost-item-row2">
+      <div class="item-field field-value">
+        <label>Valor</label>
+        <input type="number" placeholder="0.00" value="${item.variable_value ?? ''}" step="0.01" min="0" data-field="variable_value">
+      </div>
+      <div class="item-field field-unit">
+        <label>Unidad</label>
+        <select data-field="variable_unit">${unitOptions}</select>
+      </div>
+      <div class="item-field field-unitkg" style="display:${needsUnitKg ? '' : 'none'}">
+        <label>kg/unidad</label>
+        <input type="number" placeholder="10" value="${item.variable_unit_kg ?? ''}" step="0.01" min="0" data-field="variable_unit_kg">
+      </div>
+      <div class="item-field field-fship">
+        <label>Fijo/emb. $</label>
+        <input type="number" placeholder="0" value="${item.fixed_per_shipment ?? ''}" step="0.01" min="0" data-field="fixed_per_shipment">
+      </div>
+      <div class="item-field field-fquote">
+        <label>Fijo/coti. $</label>
+        <input type="number" placeholder="0" value="${item.fixed_per_quote ?? ''}" step="0.01" min="0" data-field="fixed_per_quote">
+      </div>
+      <div class="item-result na" data-result="${layerIdx}-${itemIdx}">$0.000/kg</div>
+    </div>
   `;
 
   // Fuente: toggle tabla/manual
@@ -500,11 +516,18 @@ function recalculate() {
   layers.forEach((layer, idx) => {
     let layerTotal = 0;
 
-    layer.items.forEach(item => {
+    layer.items.forEach((item, itemIdx) => {
       const costPerKg = calcItemCostPerKg(item, volumeKg, numShipments);
       const adjusted = layer.applies_yield && yieldPct > 0 ? costPerKg / yieldPct : costPerKg;
       item.cost_per_kg_calc = adjusted;
       layerTotal += adjusted;
+
+      // Actualizar resultado visual por ítem
+      const resultEl = document.querySelector(`[data-result="${idx}-${itemIdx}"]`);
+      if (resultEl) {
+        resultEl.textContent = `$${adjusted.toFixed(3)}/kg`;
+        resultEl.classList.toggle('na', adjusted === 0);
+      }
     });
 
     totalCostPerKg += layerTotal;
