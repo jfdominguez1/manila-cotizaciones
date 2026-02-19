@@ -1,0 +1,167 @@
+# Guía de Usuario — Cotizaciones Manila
+
+> Sistema interno de cotizaciones para comercio exterior de Manila S.A.
+> Versión 1.6 · Acceso: https://jfdominguez1.github.io/manila-cotizaciones/
+
+---
+
+## Acceso
+
+La aplicación requiere usuario y contraseña. Pedile el acceso al administrador del sistema. Al ingresar, verás el **Dashboard** con un resumen de cotizaciones recientes y acceso a los módulos principales.
+
+---
+
+## Crear una cotización nueva
+
+Ir a **Nueva Cotización** en el menú superior.
+
+### Paso 1 — Producto y marca
+
+- Seleccioná el **producto** del menú desplegable. Al elegirlo aparece la foto y se carga el rendimiento por defecto.
+- Elegí la **marca** con la que va a salir el PDF:
+  - **Manila S.A.** — uso corporativo / mercado local
+  - **Patagonia Exquisiteces** — mercado europeo / premium
+  - **Andes Natural Fish** — mercado USA
+
+### Paso 2 — Cliente
+
+Completá los datos del comprador:
+- **Nombre / Empresa** — el nombre que va a aparecer en el PDF
+- **País destino** — el país al que se exporta
+- **Contacto** — nombre de la persona
+- **Ciudad / Puerto de destino** — ej. "Miami, FL — USA"
+
+### Paso 3 — Operación
+
+| Campo | Descripción |
+|---|---|
+| **Incoterm** | Condición de entrega: EXW, FCA, FOB, CFR, CIF, DDP |
+| **Puerto de origen** | Desde dónde sale la mercadería (ej. "Buenos Aires, Argentina") |
+| **Tipo de envío** | Marítimo, Aéreo, Terrestre, o refrigerado |
+| **Volumen total (kg)** | Kg totales del pedido (todos los embarques juntos) |
+| **N° de embarques** | Cuántas cargas fraccionadas tiene el pedido |
+| **Rendimiento (%)** | Conversión de materia prima a producto terminado. Se carga automáticamente del producto pero se puede ajustar |
+| **Validez (días)** | Días que tiene vigencia la oferta |
+| **Lead time** | Tiempo estimado de producción y entrega (ej. "7-10 días desde confirmación") |
+
+### Paso 4 — Capas de costo (columna derecha)
+
+Este es el corazón de la cotización. Cada capa agrupa los costos de una etapa del proceso:
+
+| Capa | Qué incluye |
+|---|---|
+| **Materia Prima** | Costo del pescado en pie. Se ajusta automáticamente por rendimiento |
+| **Proceso en Planta** | Mano de obra, energía, fileteado, congelado |
+| **Materiales y Embalaje** | Bolsas, cajas, etiquetas |
+| **Transporte Interno** | Flete Bariloche → Buenos Aires |
+| **Costos de Exportación** | Aduana, SENASA, freight internacional, seguro |
+| **Otros** | Cualquier costo adicional |
+
+**Para agregar un ítem** dentro de una capa:
+1. Clic en **＋ Agregar ítem**
+2. Escribí el nombre del concepto
+3. Elegí la fuente:
+   - **Manual** — ingresás el valor vos mismo
+   - **Tabla** — traés un valor pre-cargado desde Admin → Tablas de costos
+4. Completá los campos según la unidad elegida (ver tabla abajo)
+
+**Unidades disponibles:**
+
+| Unidad | Cuándo usarla |
+|---|---|
+| **$/kg** | El costo ya está expresado por kg de producto terminado |
+| **$/unidad** | Costo por pieza; debés indicar cuántos kg pesa cada unidad |
+| **$/caja** | Costo por caja; debés indicar cuántos kg lleva cada caja |
+| **$/carga** | Costo fijo por toda la operación (ej. un contenedor) |
+
+También hay **campos fijos**:
+- **Fijo/emb. $** — monto fijo que se aplica una vez por embarque (ej. $500/emb × 2 embarques = $1.000 en total)
+- **Fijo/coti. $** — monto fijo que se aplica una sola vez a toda la cotización
+
+### Paso 5 — Comisión comercial
+
+Al final de la columna derecha está la sección de **Comisión**. Completá si aplica:
+- **Porcentaje** — el % acordado con el intermediario
+- **Base de cálculo** — si el % se calcula sobre el costo total o sobre el precio de venta
+- **Fijo/embarque y Fijo/cotización** — montos adicionales fijos si corresponden
+
+### Paso 6 — Precio final
+
+En el panel izquierdo, sección **Resumen de costos**, el precio se actualiza en tiempo real:
+- El **Resumen** desglosa cada capa + comisión + margen
+- Ajustá el **Margen (%)** hasta llegar al precio deseado
+- O usá el campo **Precio objetivo** para ingresar el precio de venta que querés y el sistema te calcula automáticamente el margen necesario
+
+El precio se muestra en **USD/kg** y **USD/lb**.
+
+### Paso 7 — Propuesta al cliente
+
+- **Certificaciones a mostrar** — seleccioná cuáles van a aparecer en el PDF del cliente (BAP, OIE, Ecocert)
+- **Comentarios / condiciones** — texto libre que aparece en el PDF (condiciones de pago, packaging especial, etc.)
+- **Notas internas** — observaciones que NO aparecen en el PDF
+
+### Paso 8 — Guardar o confirmar
+
+| Acción | Qué hace |
+|---|---|
+| **Guardar borrador** | Guarda el estado actual. Se puede seguir editando |
+| **Confirmar cotización** | Cierra la cotización con número definitivo (COT-AAAA-NNN). No se puede editar después |
+| **PDF Cliente** | Genera e imprime la hoja para el cliente (sin costos) |
+| **PDF Costos** | Genera e imprime el detalle interno completo (2 páginas: costos + hoja cliente) |
+
+> **Importante:** El número de cotización (ej. COT-2026-001) se asigna al abrir la pantalla. Los borradores ya tienen número pero no están en la secuencia confirmada hasta que se confirmen.
+
+---
+
+## Historial de cotizaciones
+
+Ir a **Historial** en el menú.
+
+- Se muestran todas las cotizaciones (confirmadas y borradores) ordenadas por fecha
+- Podés filtrar por cliente, producto, Incoterm, estado y usuario
+- **Clic en cualquier fila** para ver el detalle completo, incluido el desglose de costos al momento de crear la cotización
+
+Desde el detalle podés:
+- **Usar como modelo** — crea una cotización nueva pre-cargada con todos los datos (con número nuevo)
+- **PDF Cliente** — re-genera el PDF del cliente
+- **PDF Costos** — re-genera el PDF interno
+- **Eliminar** — solo disponible para borradores (las confirmadas no se pueden eliminar)
+
+---
+
+## Administración (solo para usuarios con acceso)
+
+Ir a **Admin** en el menú.
+
+### Pestaña Productos
+
+Gestión del catálogo de productos disponibles para cotizar:
+- Nombre, presentación, especie, corte/trim, calibres
+- Foto principal (se muestra en el PDF y en el selector)
+- Rendimiento por defecto (%)
+- Certificaciones que tiene ese producto
+- Notas / descripción en inglés (para el PDF)
+- **Botón "Sugerir descripciones"** — genera 5 descripciones en inglés listas para usar, basadas en los datos del formulario
+
+### Pestaña Tablas de costos
+
+Banco de ítems de referencia para no tener que tipear los mismos valores en cada cotización:
+- Cada ítem tiene: nombre, capa, valor, unidad, fijos, notas
+- Al crear un ítem en una cotización y elegir **Fuente: Tabla**, se puede seleccionar uno de estos ítems y traer todos sus valores automáticamente
+
+---
+
+## Preguntas frecuentes
+
+**¿Puedo editar una cotización confirmada?**
+No. Las cotizaciones confirmadas son un registro permanente. Si necesitás modificar algo, usá "Usar como modelo" para crear una nueva versión.
+
+**¿Qué pasa si borro un producto del catálogo?**
+Las cotizaciones existentes conservan el snapshot completo del producto tal como era en el momento de creación. El catálogo solo afecta cotizaciones futuras.
+
+**No me aparece el precio, ¿qué hago?**
+El precio se activa cuando hay al menos un ítem de costo con valor mayor a 0. Verificá que hayas ingresado valores en las capas de costo.
+
+**¿El PDF incluye los costos?**
+- **PDF Cliente** → solo muestra precio, producto, specs y condiciones. Sin costos internos.
+- **PDF Costos** → incluye el detalle completo de costos (uso interno) + una copia de la hoja del cliente al final.
