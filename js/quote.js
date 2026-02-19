@@ -857,13 +857,37 @@ function renderSummary(layers, totalCost, commPerKg, marginPct, pricePerKg, volu
   const container = document.getElementById('cost-summary');
   let html = '';
 
+  const effectiveYield = computeEffectiveYield();
+  const mpTotal   = layers.find(l => l.id === 'raw_material')?.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0) ?? 0;
+  const procTotal = layers.find(l => l.id === 'processing')?.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0) ?? 0;
+  const productionSubtotal = mpTotal + procTotal;
+
   layers.forEach(l => {
     const layerTotal = l.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0);
     if (layerTotal === 0 && l.items.length === 0) return;
-    html += `<div class="cost-summary-row">
-      <span class="label">${l.name}</span>
-      <span class="value">$${layerTotal.toFixed(3)}/kg</span>
-    </div>`;
+
+    if (l.id === 'raw_material' && mpTotal > 0 && effectiveYield < 1) {
+      const mpRaw = mpTotal * effectiveYield;
+      html += `<div class="cost-summary-row">
+        <span class="label">Materia Prima
+          <em class="yield-annotation">$${mpRaw.toFixed(3)} ÷ ${(effectiveYield * 100).toFixed(1)}%</em>
+        </span>
+        <span class="value">$${mpTotal.toFixed(3)}/kg</span>
+      </div>`;
+    } else {
+      html += `<div class="cost-summary-row">
+        <span class="label">${l.name}</span>
+        <span class="value">$${layerTotal.toFixed(3)}/kg</span>
+      </div>`;
+    }
+
+    // Subtotal de producción tras Proceso en Planta
+    if (l.id === 'processing' && (mpTotal > 0 || procTotal > 0)) {
+      html += `<div class="cost-summary-row production-subtotal">
+        <span class="label">↳ Costo de producción</span>
+        <span class="value">$${productionSubtotal.toFixed(3)}/kg</span>
+      </div>`;
+    }
   });
 
   // Nota tipo de cambio si hay ítems en ARS
@@ -1143,7 +1167,11 @@ function buildInternalTable(calc = null) {
 
     const layerRow = document.createElement('tr');
     layerRow.className = 'layer-title';
-    layerRow.innerHTML = `<td colspan="6">${layer.name}${layer.applies_yield ? ' (ajustado por rendimiento)' : ''}</td>`;
+    const ey = computeEffectiveYield();
+    const yieldNote = layer.applies_yield && ey < 1
+      ? ` (÷ ${(ey * 100).toFixed(1)}% rdto → ×${(1/ey).toFixed(2)})`
+      : '';
+    layerRow.innerHTML = `<td colspan="6">${layer.name}${yieldNote}</td>`;
     tbody.appendChild(layerRow);
 
     let layerTotal = 0;
@@ -1185,13 +1213,30 @@ function buildInternalTable(calc = null) {
   const breakdownEl = document.getElementById('pdf-cost-breakdown');
   if (breakdownEl && calc) {
     const { totalCostPerKg, commPerKg, pricePerKg, pricePerLb, marginPct } = calc;
+    const effectiveYield = computeEffectiveYield();
+    const mpTotal   = layers.find(l => l.id === 'raw_material')?.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0) ?? 0;
+    const procTotal = layers.find(l => l.id === 'processing')?.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0) ?? 0;
+    const productionSubtotal = mpTotal + procTotal;
+
     let html = '<div class="pdf-cost-breakdown-title">Resumen por capa</div>';
 
     layers.forEach(l => {
       if (l.items.length === 0) return;
       const layerTotal = l.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0);
-      const badge = l.applies_yield ? ' <em style="opacity:.65;font-size:7pt">(rend.)</em>' : '';
-      html += `<div class="pdf-breakdown-row"><span class="bd-label">${l.name}${badge}</span><span class="bd-val">$${layerTotal.toFixed(3)}/kg</span></div>`;
+
+      if (l.id === 'raw_material' && mpTotal > 0 && effectiveYield < 1) {
+        const mpRaw = mpTotal * effectiveYield;
+        html += `<div class="pdf-breakdown-row">
+          <span class="bd-label">Materia Prima <em style="opacity:.65;font-size:7pt">($${mpRaw.toFixed(3)} ÷ ${(effectiveYield * 100).toFixed(1)}%)</em></span>
+          <span class="bd-val">$${mpTotal.toFixed(3)}/kg</span>
+        </div>`;
+      } else {
+        html += `<div class="pdf-breakdown-row"><span class="bd-label">${l.name}</span><span class="bd-val">$${layerTotal.toFixed(3)}/kg</span></div>`;
+      }
+
+      if (l.id === 'processing' && (mpTotal > 0 || procTotal > 0)) {
+        html += `<div class="pdf-breakdown-row production-subtotal-pdf"><span class="bd-label">↳ Costo de producción</span><span class="bd-val">$${productionSubtotal.toFixed(3)}/kg</span></div>`;
+      }
     });
 
     if (commPerKg > 0) {
