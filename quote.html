@@ -22,7 +22,7 @@
     <a href="seed.html">Datos de ejemplo</a>
   </div>
   <div class="nav-right">
-    <span class="nav-version">v1.9</span>
+    <span class="nav-version">v2.0</span>
     <span class="nav-user" id="nav-user"></span>
     <button class="btn-logout" id="btn-logout">Salir</button>
   </div>
@@ -103,6 +103,7 @@
           <option value="">— Seleccionar —</option>
         </select>
       </div>
+      <div id="incoterm-coverage"></div>
       <div class="form-row">
         <label>Puerto / Ciudad de origen</label>
         <input type="text" id="origin-port" placeholder="Buenos Aires, Argentina">
@@ -128,15 +129,9 @@
           <input type="number" id="num-shipments" value="1" min="1" step="1">
         </div>
       </div>
-      <div class="form-row-2col">
-        <div>
-          <label>Rendimiento (%)</label>
-          <input type="text" inputmode="decimal" id="yield-pct" placeholder="50">
-        </div>
-        <div>
-          <label>Validez (días)</label>
-          <input type="number" id="valid-days" value="15" min="1">
-        </div>
+      <div class="form-row">
+        <label>Validez (días)</label>
+        <input type="number" id="valid-days" value="15" min="1">
       </div>
       <div class="form-row">
         <label>Lead time</label>
@@ -350,6 +345,6 @@
 
 </div>
 
-<script type="module" src="js/quote.js?v=19"></script>
+<script type="module" src="js/quote.js?v=20"></script>
 </body>
 </html>

@@ -55,6 +55,17 @@ export const INCOTERMS = [
   { id: 'DDP', name: 'DDP — Delivered Duty Paid', desc: 'Todo incluido hasta la puerta del cliente' },
 ];
 
+// Capas que el vendedor debe cubrir según el Incoterm.
+// Materia Prima, Proceso y Embalaje son siempre del vendedor — solo se chequean las variables.
+export const INCOTERM_LAYERS = {
+  EXW: { required: [],                          hint: 'El comprador retira en planta — sin flete ni exportación a cargo del vendedor' },
+  FCA: { required: ['transport'],               hint: 'Incluye transporte hasta el carrier designado' },
+  FOB: { required: ['transport', 'export'],     hint: 'Incluye transporte interno + costos de exportación hasta el buque' },
+  CFR: { required: ['transport', 'export'],     hint: 'Incluye flete internacional — verificá que esté en Costos de Exportación' },
+  CIF: { required: ['transport', 'export'],     hint: 'Incluye flete + seguro internacional — verificá que estén en Costos de Exportación' },
+  DDP: { required: ['transport', 'export'],     hint: 'Incluye todo hasta destino — no olvidés aranceles e impuestos en destino' },
+};
+
 // Capas de costo en orden. applies_yield: true → el costo MP se divide por el rendimiento
 export const COST_LAYERS = [
   { id: 'raw_material', name: 'Materia Prima',          applies_yield: true },

@@ -1,6 +1,6 @@
 import { requireAuth, logout, getCurrentUser } from './auth.js';
 import { db } from './firebase.js';
-import { BRANDS, CERTIFICATIONS, INCOTERMS, COST_LAYERS, COST_UNITS, CONTACT, parseNum } from './config.js';
+import { BRANDS, CERTIFICATIONS, INCOTERMS, COST_LAYERS, COST_UNITS, CONTACT, INCOTERM_LAYERS, parseNum } from './config.js';
 import {
   collection, doc, getDoc, getDocs, setDoc, updateDoc, runTransaction
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
@@ -160,8 +160,7 @@ function populateFromData(data, isCopy = false) {
     }
   }
 
-  // Yield DESPUÉS del producto para que no lo sobreescriba el default del catálogo
-  if (data.yield_pct) document.getElementById('yield-pct').value = data.yield_pct;
+  // yield_pct ya no es campo global — está guardado en cada ítem de Proceso en Planta
 
   // Comisión ANTES de renderLayers para que se renderice con valores correctos
   if (data.commission) {
@@ -215,10 +214,11 @@ function bindPanelEvents() {
 
   document.getElementById('product-select').addEventListener('change', onProductChange);
 
-  const panelInputs = ['volume-kg', 'num-shipments', 'yield-pct', 'margin-pct', 'usd-ars-rate'];
+  const panelInputs = ['volume-kg', 'num-shipments', 'margin-pct', 'usd-ars-rate'];
   panelInputs.forEach(id => {
     document.getElementById(id).addEventListener('input', recalculate);
   });
+  document.getElementById('incoterm-select').addEventListener('change', recalculate);
   document.getElementById('target-price').addEventListener('input', onTargetPriceChange);
 
   document.getElementById('btn-confirm').addEventListener('click', confirmQuote);
@@ -251,9 +251,7 @@ function onProductChange() {
     thumbWrap.className = 'product-thumb-placeholder';
   }
 
-  if (p && p.default_yield_pct) {
-    document.getElementById('yield-pct').value = p.default_yield_pct;
-  }
+  // yield_pct ya no es campo global — vive en cada ítem de Proceso en Planta
 
   // Renderizar cert picker
   renderCertPicker(p);
@@ -293,14 +291,18 @@ function renderLayers() {
     section.dataset.layer = layerIdx;
 
     const yieldBadge = layer.applies_yield
-      ? `<span class="layer-yield-badge">aplica rendimiento</span>`
+      ? `<span class="layer-yield-badge" id="materia-prima-yield-badge">ajustado por rendimiento</span>`
+      : '';
+
+    const processingYieldSlot = layer.id === 'processing'
+      ? `<span class="layer-yield-effective" id="processing-yield-display">Rdto: —</span>`
       : '';
 
     section.innerHTML = `
       <div class="layer-header" data-layer="${layerIdx}">
         <span class="layer-toggle">▼</span>
         <h3>${layer.name}</h3>
-        ${yieldBadge}
+        ${yieldBadge}${processingYieldSlot}
         <span class="layer-total" id="layer-total-${layerIdx}">$0.00/kg</span>
       </div>
       <div class="layer-body" id="layer-body-${layerIdx}">
@@ -312,6 +314,7 @@ function renderLayers() {
           <span>kg/u</span>
           <span>Fijo/emb.</span>
           <span>Fijo/coti.</span>
+          ${layer.id === 'processing' ? '<span>Rdto%</span>' : '<span></span>'}
           <span></span>
         </div>
         <div id="layer-items-${layerIdx}"></div>
@@ -354,6 +357,8 @@ function renderLayerItems(layerIdx) {
 
 function createItemRow(layerIdx, itemIdx) {
   const item = layers[layerIdx].items[itemIdx];
+  const layer = layers[layerIdx];
+  const isProcessing = layer.id === 'processing';
   const row = document.createElement('div');
   row.className = 'cost-item';
   row.dataset.item = itemIdx;
@@ -402,6 +407,11 @@ function createItemRow(layerIdx, itemIdx) {
         <label>Fijo/coti. $</label>
         <input type="text" inputmode="decimal" placeholder="0" value="${item.fixed_per_quote ?? ''}" data-field="fixed_per_quote">
       </div>
+      ${isProcessing ? `
+      <div class="item-field field-yield">
+        <label>Rdto%</label>
+        <input type="text" inputmode="decimal" placeholder="—" value="${item.yield_pct ?? ''}" data-field="yield_pct">
+      </div>` : '<div class="item-field field-yield-placeholder"></div>'}
       <div class="item-result na" data-result="${layerIdx}-${itemIdx}">$0.000/kg</div>
     </div>
   `;
@@ -440,8 +450,8 @@ function createItemRow(layerIdx, itemIdx) {
   row.querySelectorAll('[data-field]').forEach(input => {
     input.addEventListener('input', () => {
       const field = input.dataset.field;
-      const numericFields = ['variable_value', 'variable_unit_kg', 'fixed_per_shipment', 'fixed_per_quote'];
-      item[field] = numericFields.includes(field) ? (parseNum(input.value) || 0) : input.value;
+      const numericFields = ['variable_value', 'variable_unit_kg', 'fixed_per_shipment', 'fixed_per_quote', 'yield_pct'];
+      item[field] = numericFields.includes(field) ? (parseNum(input.value) || null) : input.value;
       if (field === 'variable_unit') {
         const needsKg = COST_UNITS.find(u => u.id === item.variable_unit)?.needs_unit_kg ?? false;
         row.querySelector('.field-unitkg').style.display = needsKg ? '' : 'none';
@@ -461,6 +471,7 @@ function createItemRow(layerIdx, itemIdx) {
 }
 
 function addItem(layerIdx) {
+  const isProcessing = layers[layerIdx].id === 'processing';
   layers[layerIdx].items.push({
     name: '',
     source: 'manual',
@@ -472,7 +483,8 @@ function addItem(layerIdx) {
     fixed_per_shipment: 0,
     fixed_per_quote: 0,
     cost_per_kg_calc: 0,
-    notes: ''
+    notes: '',
+    ...(isProcessing ? { yield_pct: null } : {})
   });
   renderLayerItems(layerIdx);
   // Focus en el nuevo ítem
@@ -581,14 +593,43 @@ function renderCommissionSection(container) {
 }
 
 // ============================================================
+// YIELD EFECTIVO — producto de todos los Rdto% de Proceso en Planta
+// ============================================================
+function computeEffectiveYield() {
+  const processingLayer = layers.find(l => l.id === 'processing');
+  if (!processingLayer) return 1;
+  let ey = 1;
+  processingLayer.items.forEach(item => {
+    if (item.yield_pct && item.yield_pct > 0) ey *= item.yield_pct / 100;
+  });
+  return ey;
+}
+
+// ============================================================
 // CÁLCULO PRINCIPAL
 // ============================================================
 function recalculate() {
   const volumeKg = parseNum(document.getElementById('volume-kg').value) || 0;
   const numShipments = parseInt(document.getElementById('num-shipments').value) || 1;
-  const yieldPct = parseNum(document.getElementById('yield-pct').value) / 100 || 1;
+  const effectiveYield = computeEffectiveYield();  // producto de yields de Proceso en Planta
   const marginPct = parseNum(document.getElementById('margin-pct').value) / 100 || 0;
   const usdArsRate = parseNum(document.getElementById('usd-ars-rate').value) || 0;
+
+  // Actualizar display del yield efectivo en header de Proceso en Planta
+  const yieldDisplay = document.getElementById('processing-yield-display');
+  if (yieldDisplay) {
+    const hasYield = layers.find(l => l.id === 'processing')?.items.some(i => i.yield_pct > 0);
+    yieldDisplay.textContent = hasYield
+      ? `Rdto efectivo: ${(effectiveYield * 100).toFixed(1)}%`
+      : 'Rdto: sin definir';
+    yieldDisplay.className = 'layer-yield-effective' + (hasYield ? '' : ' undefined');
+  }
+
+  // Badge de Materia Prima: mostrar el yield efectivo también ahí
+  const mpBadge = document.getElementById('materia-prima-yield-badge');
+  if (mpBadge && effectiveYield < 1) {
+    mpBadge.textContent = `÷ ${(effectiveYield * 100).toFixed(1)}% rdto`;
+  }
 
   // Validación: si hay ítems ARS sin tipo de cambio, advertir
   const rateInput = document.getElementById('usd-ars-rate');
@@ -611,8 +652,8 @@ function recalculate() {
       const costPerKg   = item.currency === 'ARS'
         ? (usdArsRate > 0 ? rawPerKg / usdArsRate : 0)
         : rawPerKg;
-      const adjusted    = layer.applies_yield && yieldPct > 0 ? costPerKg / yieldPct : costPerKg;
-      const rawAdjARS   = layer.applies_yield && yieldPct > 0 ? rawPerKg / yieldPct : rawPerKg;
+      const adjusted    = layer.applies_yield && effectiveYield > 0 ? costPerKg / effectiveYield : costPerKg;
+      const rawAdjARS   = layer.applies_yield && effectiveYield > 0 ? rawPerKg / effectiveYield : rawPerKg;
       item.cost_per_kg_calc = adjusted;
       layerTotal += adjusted;
 
@@ -695,6 +736,9 @@ function recalculate() {
     targetPriceEl.value = pricePerKg > 0 ? pricePerKg.toFixed(2) : '';
   }
 
+  // Checklist Incoterm
+  renderIncotermCoverage();
+
   return { totalCostPerKg, commPerKg, pricePerKg, pricePerLb, marginPct };
 }
 
@@ -705,13 +749,13 @@ function onTargetPriceChange() {
 
   const volumeKg = parseNum(document.getElementById('volume-kg').value) || 0;
   const numShipments = parseInt(document.getElementById('num-shipments').value) || 1;
-  const yieldPct = parseNum(document.getElementById('yield-pct').value) / 100 || 1;
+  const effectiveYield = computeEffectiveYield();
 
   let totalCost = 0;
   layers.forEach(layer => {
     layer.items.forEach(item => {
       const cost = calcItemCostPerKg(item, volumeKg, numShipments);
-      totalCost += layer.applies_yield && yieldPct > 0 ? cost / yieldPct : cost;
+      totalCost += layer.applies_yield && effectiveYield > 0 ? cost / effectiveYield : cost;
     });
   });
 
@@ -770,6 +814,43 @@ function calcItemCostPerKg(item, volumeKg, numShipments, usdArsRate) {
 
 function hasArsItems() {
   return layers.some(l => l.items.some(i => i.currency === 'ARS'));
+}
+
+function renderIncotermCoverage() {
+  const container = document.getElementById('incoterm-coverage');
+  if (!container) return;
+  const incotermId = document.getElementById('incoterm-select').value;
+  if (!incotermId) { container.innerHTML = ''; return; }
+
+  const def = INCOTERM_LAYERS[incotermId];
+  if (!def) { container.innerHTML = ''; return; }
+
+  // Verificar capas requeridas
+  const checks = def.required.map(layerId => {
+    const layer = layers.find(l => l.id === layerId);
+    const hasItems = layer?.items?.length > 0;
+    const layerName = layer?.name ?? layerId;
+    return { layerName, hasItems };
+  });
+
+  const allOk = checks.every(c => c.hasItems);
+  const hasRequired = def.required.length > 0;
+
+  let html = `<div class="incoterm-coverage">`;
+  html += `<div class="incoterm-hint">${def.hint}</div>`;
+
+  if (hasRequired) {
+    html += `<div class="incoterm-checklist">`;
+    checks.forEach(({ layerName, hasItems }) => {
+      html += `<span class="incoterm-check ${hasItems ? 'ok' : 'missing'}">
+        ${hasItems ? '✓' : '⚠'} ${layerName}
+      </span>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `</div>`;
+  container.innerHTML = html;
 }
 
 function renderSummary(layers, totalCost, commPerKg, marginPct, pricePerKg, volumeKg, usdArsRate = 0) {
@@ -868,7 +949,7 @@ function buildQuoteObject(status) {
     product: currentProduct ? { ...currentProduct } : null,
     volume_kg: volumeKg,
     num_shipments: numShipments,
-    yield_pct: parseNum(document.getElementById('yield-pct').value) || 100,
+    effective_yield_pct: Math.round(computeEffectiveYield() * 10000) / 100,  // % con 2 decimales
 
     cost_layers: costLayersSnapshot,
     commission: { ...commission },
