@@ -128,17 +128,34 @@ function populateFromData(data, isCopy = false) {
   if (data.transport_type) document.getElementById('transport-type').value = data.transport_type;
   if (data.volume_kg) document.getElementById('volume-kg').value = data.volume_kg;
   if (data.num_shipments) document.getElementById('num-shipments').value = data.num_shipments;
-  if (data.yield_pct) document.getElementById('yield-pct').value = data.yield_pct;
   if (data.valid_days) document.getElementById('valid-days').value = data.valid_days;
   if (data.lead_time) document.getElementById('lead-time').value = data.lead_time;
   if (data.client_comments) document.getElementById('client-comments').value = data.client_comments;
   if (data.notes) document.getElementById('quote-notes').value = data.notes;
   if (data.margin_pct) document.getElementById('margin-pct').value = data.margin_pct;
 
+  // Producto: usar snapshot directamente para no depender del catálogo actual
   if (data.product) {
+    currentProduct = data.product;
     const productSel = document.getElementById('product-select');
     productSel.value = data.product.id ?? '';
-    onProductChange();
+    // Thumbnail manual (sin llamar onProductChange para no sobreescribir yield)
+    const thumbWrap = document.getElementById('product-thumb-wrap');
+    if (currentProduct.photo) {
+      thumbWrap.innerHTML = `<img class="product-thumb" src="${currentProduct.photo}" alt="${currentProduct.name}">`;
+      thumbWrap.className = '';
+    } else {
+      thumbWrap.innerHTML = '<span>📦</span>';
+      thumbWrap.className = 'product-thumb-placeholder';
+    }
+  }
+
+  // Yield DESPUÉS del producto para que no lo sobreescriba el default del catálogo
+  if (data.yield_pct) document.getElementById('yield-pct').value = data.yield_pct;
+
+  // Comisión ANTES de renderLayers para que se renderice con valores correctos
+  if (data.commission) {
+    commission = { ...data.commission };
   }
 
   if (data.cost_layers) {
@@ -152,9 +169,14 @@ function populateFromData(data, isCopy = false) {
     renderLayers();
   }
 
-  if (data.commission) {
-    commission = { ...data.commission };
-    renderCommissionSection();
+  // Cert picker con producto del snapshot + restaurar selección
+  if (data.product) {
+    renderCertPicker(currentProduct);
+    if (data.selected_certs?.length) {
+      document.querySelectorAll('.cert-pick').forEach(cb => {
+        cb.checked = data.selected_certs.includes(cb.value);
+      });
+    }
   }
 
   recalculate();
