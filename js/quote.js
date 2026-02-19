@@ -987,10 +987,12 @@ function buildInternalTable(calc = null) {
       layerTotal += item.cost_per_kg_calc ?? 0;
     });
 
-    const subRow = document.createElement('tr');
-    subRow.className = 'subtotal';
-    subRow.innerHTML = `<td colspan="5">Subtotal ${layer.name}</td><td class="num">$${layerTotal.toFixed(4)}</td>`;
-    tbody.appendChild(subRow);
+    if (layer.items.length > 1) {
+      const subRow = document.createElement('tr');
+      subRow.className = 'subtotal';
+      subRow.innerHTML = `<td colspan="5">Subtotal ${layer.name}</td><td class="num">$${layerTotal.toFixed(4)}</td>`;
+      tbody.appendChild(subRow);
+    }
   });
 
   // Comisión row
@@ -1008,8 +1010,8 @@ function buildInternalTable(calc = null) {
     let html = '<div class="pdf-cost-breakdown-title">Resumen por capa</div>';
 
     layers.forEach(l => {
+      if (l.items.length === 0) return;
       const layerTotal = l.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0);
-      if (layerTotal === 0 && l.items.length === 0) return;
       const badge = l.applies_yield ? ' <em style="opacity:.65;font-size:7pt">(rend.)</em>' : '';
       html += `<div class="pdf-breakdown-row"><span class="bd-label">${l.name}${badge}</span><span class="bd-val">$${layerTotal.toFixed(3)}/kg</span></div>`;
     });

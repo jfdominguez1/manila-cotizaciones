@@ -10,6 +10,19 @@ let products = [];
 let costItems = [];
 let editingProductId = null;
 let editingCostId = null;
+let selectedPhoto = '';
+
+const PRODUCT_PHOTOS = [
+  'img/fillet-white.jpg',
+  'img/fillet-pair.jpg',
+  'img/fillet-color-individual.jpg',
+  'img/fillet-vacpak-color.jpg',
+  'img/fillet-vacpak-white.jpg',
+  'img/butterfly-white.jpg',
+  'img/smoked-rack.jpg',
+  'img/smoked-patagonia-pack.jpg',
+  'img/trout-board.jpg',
+];
 
 async function init() {
   currentUser = await requireAuth();
@@ -74,6 +87,41 @@ function renderProductList() {
   });
 }
 
+function renderPhotoPicker(currentPhotoSrc) {
+  selectedPhoto = currentPhotoSrc ?? '';
+
+  // Preview
+  const preview = document.getElementById('p-photo-preview');
+  if (selectedPhoto) {
+    preview.innerHTML = `<img src="${selectedPhoto}" alt="">`;
+    preview.classList.add('has-photo');
+  } else {
+    preview.innerHTML = '<span class="photo-picker-empty">Sin foto seleccionada</span>';
+    preview.classList.remove('has-photo');
+  }
+
+  // Galería
+  const gallery = document.getElementById('p-photo-gallery');
+  gallery.innerHTML = '';
+
+  // Opción "ninguna"
+  const noneItem = document.createElement('div');
+  noneItem.className = 'photo-pick-item photo-pick-none' + (!selectedPhoto ? ' selected' : '');
+  noneItem.title = 'Sin foto';
+  noneItem.innerHTML = '<span>✕</span>';
+  noneItem.addEventListener('click', () => renderPhotoPicker(''));
+  gallery.appendChild(noneItem);
+
+  PRODUCT_PHOTOS.forEach(src => {
+    const item = document.createElement('div');
+    item.className = 'photo-pick-item' + (src === selectedPhoto ? ' selected' : '');
+    item.innerHTML = `<img src="${src}" alt="">`;
+    item.title = src.split('/').pop();
+    item.addEventListener('click', () => renderPhotoPicker(src));
+    gallery.appendChild(item);
+  });
+}
+
 function bindProductForm() {
   document.getElementById('btn-new-product').addEventListener('click', () => openProductForm(null));
   document.getElementById('btn-cancel-product').addEventListener('click', () => closeProductForm());
@@ -97,7 +145,7 @@ function openProductForm(productId) {
     document.getElementById('p-trim').value = p.specs?.trim_cut ?? '';
     document.getElementById('p-caliber').value = p.specs?.caliber ?? '';
     document.getElementById('p-yield').value = p.default_yield_pct ?? '';
-    document.getElementById('p-photo').value = p.photo ?? '';
+    renderPhotoPicker(p.photo ?? '');
     document.getElementById('p-order').value = p.order ?? 0;
     document.getElementById('p-notes').value = p.notes ?? '';
     document.querySelectorAll('.cert-check').forEach(cb => {
@@ -112,7 +160,7 @@ function openProductForm(productId) {
     document.getElementById('p-trim').value = '';
     document.getElementById('p-caliber').value = '';
     document.getElementById('p-yield').value = '50';
-    document.getElementById('p-photo').value = '';
+    renderPhotoPicker('');
     document.getElementById('p-order').value = products.length;
     document.getElementById('p-notes').value = '';
     document.querySelectorAll('.cert-check').forEach(cb => cb.checked = false);
@@ -144,7 +192,7 @@ async function saveProduct() {
       caliber: document.getElementById('p-caliber').value.trim()
     },
     default_yield_pct: parseFloat(document.getElementById('p-yield').value) || 50,
-    photo: document.getElementById('p-photo').value.trim(),
+    photo: selectedPhoto,
     order: parseInt(document.getElementById('p-order').value) || 0,
     notes: document.getElementById('p-notes').value.trim(),
     certifications

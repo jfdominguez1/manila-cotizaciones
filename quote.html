@@ -243,16 +243,18 @@
     <!-- Inscripción visible solo en PDF Costos (modo internal) -->
     <div class="pdf-copy-label">COPIA ENVIADA AL CLIENTE</div>
 
-    <!-- Header: logo marca (izq) + logo Manila pequeño + datos cotización (der) -->
+    <!-- Header: logos sobre la línea -->
     <div class="pdf-header">
       <img id="pdf-logo" src="img/logo-manila.png" alt="Manila" class="pdf-brand-logo">
-      <div class="pdf-header-right">
-        <img id="pdf-manila-logo-small" src="img/logo-manila.png" alt="Manila S.A." class="pdf-manila-small">
-        <div class="pdf-header-info">
-          <div class="pdf-quote-number" id="pdf-quote-number">—</div>
-          <div class="pdf-date" id="pdf-date"></div>
-          <div class="pdf-valid" id="pdf-valid"></div>
-        </div>
+      <img id="pdf-manila-logo-small" src="img/logo-manila.png" alt="Manila S.A." class="pdf-manila-small">
+    </div>
+
+    <!-- Barra de datos debajo de la línea -->
+    <div class="pdf-quote-bar">
+      <div class="pdf-quote-number" id="pdf-quote-number">—</div>
+      <div class="pdf-quote-meta">
+        <span id="pdf-date"></span>
+        <span id="pdf-valid"></span>
       </div>
     </div>
 
