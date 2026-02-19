@@ -127,6 +127,50 @@ function bindProductForm() {
   document.getElementById('btn-cancel-product').addEventListener('click', () => closeProductForm());
   document.getElementById('btn-save-product').addEventListener('click', saveProduct);
   document.getElementById('btn-delete-product').addEventListener('click', deleteProduct);
+  document.getElementById('btn-suggest-desc').addEventListener('click', renderDescriptionSuggestions);
+}
+
+function generateDescriptionSuggestions() {
+  const name        = document.getElementById('p-name').value.trim();
+  const presentation= document.getElementById('p-presentation').value.trim();
+  const species     = document.getElementById('p-species').value.trim() || 'Rainbow Trout (Oncorhynchus mykiss)';
+  const trim        = document.getElementById('p-trim').value.trim();
+  const caliber     = document.getElementById('p-caliber').value.trim();
+  const certs       = [...document.querySelectorAll('.cert-check:checked')].map(cb => cb.value);
+
+  const pres     = presentation || name || 'Fillet';
+  const presLow  = pres.toLowerCase();
+  const speciesShort = species.includes('(') ? species.split('(')[0].trim() : species;
+  const trimStr  = trim   ? `, ${trim}`            : '';
+  const calStr   = caliber ? ` Available in ${caliber}.` : '';
+  const certStr  = certs.includes('bap') ? ' BAP Certified.' : '';
+  const noStr    = 'No antibiotics · No GMOs · No shortcuts.';
+  const origin   = 'Raised in the pristine waters of Patagonia, Argentina.';
+
+  return [
+    `Premium Patagonian ${presLow}${trimStr}.${calStr} ${origin} ${noStr}`,
+    `${species}. ${pres}${trimStr}.${calStr} From Manila S.A.'s Patagonia farm.${certStr} ${noStr}`,
+    `${pres}${trimStr} of ${speciesShort.toLowerCase()} — farmed at Río Negro, Patagonia.${calStr} ${noStr}`,
+    `Wild-quality, farm-raised precision. ${pres}${trimStr} of premium Patagonian trout.${calStr}${certStr}`,
+    `Manila S.A. ${pres}${trimStr}. ${species}.${calStr} Argentina's finest aquaculture. ${noStr}`,
+  ];
+}
+
+function renderDescriptionSuggestions() {
+  const list = document.getElementById('suggestions-list');
+  const suggestions = generateDescriptionSuggestions();
+  list.innerHTML = '';
+  suggestions.forEach(text => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'suggestion-chip';
+    chip.textContent = text;
+    chip.addEventListener('click', () => {
+      document.getElementById('p-notes').value = text;
+      list.innerHTML = '';
+    });
+    list.appendChild(chip);
+  });
 }
 
 function openProductForm(productId) {
@@ -156,7 +200,7 @@ function openProductForm(productId) {
     delBtn.style.display = 'none';
     document.getElementById('p-name').value = '';
     document.getElementById('p-presentation').value = '';
-    document.getElementById('p-species').value = '';
+    document.getElementById('p-species').value = 'Rainbow Trout (Oncorhynchus mykiss)';
     document.getElementById('p-trim').value = '';
     document.getElementById('p-caliber').value = '';
     document.getElementById('p-yield').value = '50';

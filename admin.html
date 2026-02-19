@@ -21,7 +21,7 @@
     <a href="seed.html">Datos de ejemplo</a>
   </div>
   <div class="nav-right">
-    <span class="nav-version">v1.5</span>
+    <span class="nav-version">v1.6</span>
     <span class="nav-user" id="nav-user"></span>
     <button class="btn-logout" id="btn-logout">Salir</button>
   </div>
@@ -90,6 +90,10 @@
         <div class="admin-form-field">
           <label>Notas / descripción</label>
           <textarea id="p-notes" placeholder="Descripción breve del producto para el PDF..."></textarea>
+          <div class="suggestions-bar">
+            <button type="button" class="btn-suggest" id="btn-suggest-desc">✦ Sugerir descripciones</button>
+            <div class="suggestions-list" id="suggestions-list"></div>
+          </div>
         </div>
       </div>
       <div class="admin-form-field" style="margin-bottom:16px">
@@ -186,6 +190,6 @@
 
 </div>
 
-<script type="module" src="js/admin.js?v=14"></script>
+<script type="module" src="js/admin.js?v=15"></script>
 </body>
 </html>
