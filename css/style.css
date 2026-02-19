@@ -532,6 +532,7 @@ body {
   border-radius: 10px;
   border: 1px solid var(--gray-200);
   overflow: hidden;
+  flex-shrink: 0;
 }
 .layer-header {
   display: flex;
@@ -673,6 +674,7 @@ body {
   border-radius: 10px;
   border: 1px solid var(--gray-200);
   padding: 16px;
+  flex-shrink: 0;
 }
 .commission-section h3 {
   font-size: 13px;
