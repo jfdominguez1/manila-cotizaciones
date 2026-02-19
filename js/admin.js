@@ -293,9 +293,11 @@ function renderCostList() {
       const el = document.createElement('div');
       el.className = 'cost-table-item';
       const unitLabel = COST_UNITS.find(u => u.id === item.variable_unit)?.label ?? item.variable_unit;
+      const currency = item.currency ?? 'USD';
       el.innerHTML = `
         <span class="cti-name">${item.name}</span>
         <span class="cti-layer">${layer.name}</span>
+        <span class="currency-badge ${currency === 'ARS' ? 'ars' : 'usd'}">${currency}</span>
         <span class="cti-val">${item.variable_value ?? 0} ${unitLabel}</span>
         <span class="cti-val">${item.variable_unit_kg ? item.variable_unit_kg + ' kg/u' : '—'}</span>
         <span class="cti-val">${item.fixed_per_shipment ? '$' + item.fixed_per_shipment + '/emb' : '—'}</span>
@@ -335,6 +337,7 @@ function openCostForm(itemId) {
     delBtn.style.display = '';
     document.getElementById('c-name').value = item.name ?? '';
     document.getElementById('c-layer').value = item.layer ?? 'other';
+    document.getElementById('c-currency').value = item.currency ?? 'USD';
     document.getElementById('c-value').value = item.variable_value ?? '';
     document.getElementById('c-unit').value = item.variable_unit ?? 'kg';
     document.getElementById('c-unitkg').value = item.variable_unit_kg ?? '';
@@ -346,6 +349,7 @@ function openCostForm(itemId) {
     delBtn.style.display = 'none';
     document.getElementById('c-name').value = '';
     document.getElementById('c-layer').value = 'transport';
+    document.getElementById('c-currency').value = 'USD';
     document.getElementById('c-value').value = '';
     document.getElementById('c-unit').value = 'kg';
     document.getElementById('c-unitkg').value = '';
@@ -376,6 +380,7 @@ async function saveCostItem() {
     id,
     name,
     layer: document.getElementById('c-layer').value,
+    currency: document.getElementById('c-currency').value,
     variable_value: parseFloat(document.getElementById('c-value').value) || 0,
     variable_unit: unit,
     variable_unit_kg: needsKg ? (parseFloat(document.getElementById('c-unitkg').value) || null) : null,

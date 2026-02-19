@@ -67,10 +67,10 @@ export const COST_LAYERS = [
 
 // Unidades de costo variable disponibles
 export const COST_UNITS = [
-  { id: 'kg',    label: '$/kg',       needs_unit_kg: false },
-  { id: 'unit',  label: '$/unidad',   needs_unit_kg: true  },
-  { id: 'box',   label: '$/caja',     needs_unit_kg: true  },
-  { id: 'load',  label: '$/carga',    needs_unit_kg: false },
+  { id: 'kg',        label: '/kg',      needs_unit_kg: false },
+  { id: 'unit',      label: '/unidad',  needs_unit_kg: true  },
+  { id: 'box',       label: '/caja',    needs_unit_kg: true  },
+  { id: 'load',      label: '/carga',   needs_unit_kg: false },
   { id: 'pct_cost',  label: '% costo',  needs_unit_kg: false },
   { id: 'pct_price', label: '% precio', needs_unit_kg: false },
 ];
