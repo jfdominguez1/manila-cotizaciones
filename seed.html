@@ -65,6 +65,13 @@
     <div class="seed-log" id="log-quote">Listo para cargar...</div>
   </div>
 
+  <div class="seed-card" style="border-color:#40543B">
+    <h2>🏭 Procesos en Planta — datos reales (10 ítems)</h2>
+    <p>Tablas de costos de MO por proceso, en ARS. Incluye rendimiento esperado en notas. Los que no tienen precio aún quedan para cargar manualmente cuando se confirme el valor.</p>
+    <button class="btn-primary" id="btn-seed-processes" style="background:#40543B">Cargar procesos reales</button>
+    <div class="seed-log" id="log-processes">Listo para cargar...</div>
+  </div>
+
   <div class="seed-card">
     <h2>🗑 Limpiar datos de ejemplo</h2>
     <p>Elimina todos los registros con prefijo EXAM de Firestore.</p>
@@ -470,6 +477,147 @@
     } catch (e) {
       log('log-quote', `✗ Error: ${e.message}`, true);
     }
+  });
+
+  // ============================================================
+  // PROCESOS EN PLANTA — DATOS REALES
+  // MO Servicio en ARS/kg de producto terminado
+  // Rendimiento esperado en notes (se configura por ítem en la cotización)
+  // ============================================================
+  const REAL_PROCESSES = [
+    {
+      id: 'proc-tch-hon',
+      layer: 'processing',
+      name: 'Tch HON — Trucha Chica entera',
+      currency: 'ARS',
+      variable_value: 850,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'Rendimiento esperado: 80%'
+    },
+    {
+      id: 'proc-tch-trim-a',
+      layer: 'processing',
+      name: 'Tch TRIM A — Trucha Chica Trim A',
+      currency: 'ARS',
+      variable_value: 2000,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'Rendimiento esperado: 70%'
+    },
+    {
+      id: 'proc-tch-trim-c-pbo',
+      layer: 'processing',
+      name: 'Tch TRIM C PBO — Trucha Chica Trim C Pin Bone Out',
+      currency: 'ARS',
+      variable_value: 3500,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'Rendimiento esperado: 48%'
+    },
+    {
+      id: 'proc-tgr-hon',
+      layer: 'processing',
+      name: 'Tgr HON — Trucha Grande entera',
+      currency: 'ARS',
+      variable_value: 850,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'Rendimiento esperado: 80%'
+    },
+    {
+      id: 'proc-tgr-trim-a',
+      layer: 'processing',
+      name: 'Tgr TRIM A — Trucha Grande Trim A',
+      currency: 'ARS',
+      variable_value: 2000,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'Rendimiento esperado: 70%'
+    },
+    {
+      id: 'proc-tgr-trim-c-pbo',
+      layer: 'processing',
+      name: 'Tgr TRIM C PBO — Trucha Grande Trim C Pin Bone Out',
+      currency: 'ARS',
+      variable_value: 3000,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'Rendimiento esperado: 55%'
+    },
+    {
+      id: 'proc-pan-size',
+      layer: 'processing',
+      name: 'PAN SIZE — Trucha entera porcionada',
+      currency: 'ARS',
+      variable_value: 850,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'Rendimiento esperado: 67%'
+    },
+    {
+      id: 'proc-bf',
+      layer: 'processing',
+      name: 'BF — Butterfly',
+      currency: 'ARS',
+      variable_value: 1200,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'Rendimiento esperado: 57%'
+    },
+    {
+      id: 'proc-ahum-gde-trim-a',
+      layer: 'processing',
+      name: 'Ahumado Gde + Trim A — Trucha Grande ahumada',
+      currency: 'ARS',
+      variable_value: 6000,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'Rendimiento esperado: 48% (incluye fileteo Trim A + ahumado)'
+    },
+    {
+      id: 'proc-ahum-ch-trim-a',
+      layer: 'processing',
+      name: 'Ahumado Ch + Trim A — Trucha Chica ahumada',
+      currency: 'ARS',
+      variable_value: 6200,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'Rendimiento esperado: 46% (incluye fileteo Trim A + ahumado)'
+    }
+  ];
+
+  document.getElementById('btn-seed-processes').addEventListener('click', async () => {
+    document.getElementById('log-processes').textContent = '';
+    for (const p of REAL_PROCESSES) {
+      try {
+        await setDoc(doc(db, 'cost_tables', p.id), p);
+        log('log-processes', `✓ ${p.name} — ARS $${p.variable_value.toLocaleString('es-AR')}/kg`);
+      } catch (e) {
+        log('log-processes', `✗ ${p.name}: ${e.message}`, true);
+      }
+    }
+    log('log-processes', '\n→ Listo. Verificá en Admin → Tablas de costos → Proceso en Planta.');
   });
 
   // ============================================================
