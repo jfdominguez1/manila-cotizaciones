@@ -133,9 +133,14 @@ function bindModal() {
     window.location.href = `quote.html?copy=${encodeURIComponent(activeQuote._docId)}`;
   });
 
-  document.getElementById('btn-print-detail').addEventListener('click', () => {
+  document.getElementById('btn-print-client-detail').addEventListener('click', () => {
     if (!activeQuote) return;
-    window.location.href = `quote.html?draft=${encodeURIComponent(activeQuote._docId)}`;
+    window.location.href = `quote.html?draft=${encodeURIComponent(activeQuote._docId)}&print=client`;
+  });
+
+  document.getElementById('btn-print-internal-detail').addEventListener('click', () => {
+    if (!activeQuote) return;
+    window.location.href = `quote.html?draft=${encodeURIComponent(activeQuote._docId)}&print=internal`;
   });
 
   document.getElementById('btn-delete-quote').addEventListener('click', async () => {

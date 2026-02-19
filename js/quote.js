@@ -45,13 +45,22 @@ async function init() {
   bindPanelEvents();
   recalculate();
 
-  // ¿Viene con ?draft=ID o ?copy=ID?
+  // ¿Viene con ?draft=ID, ?copy=ID o ?print=client/internal?
   const params = new URLSearchParams(window.location.search);
   const draftId = params.get('draft');
   const copyId = params.get('copy');
-  if (draftId) await loadDraft(draftId);
-  else if (copyId) await loadCopy(copyId);
-  else await assignQuoteNumber();
+  const printMode = params.get('print');
+  if (draftId) {
+    await loadDraft(draftId);
+    // Auto-imprimir si viene con ?print=client o ?print=internal
+    if (printMode === 'client' || printMode === 'internal') {
+      setTimeout(() => printQuote(printMode), 300);
+    }
+  } else if (copyId) {
+    await loadCopy(copyId);
+  } else {
+    await assignQuoteNumber();
+  }
 }
 
 // ============================================================

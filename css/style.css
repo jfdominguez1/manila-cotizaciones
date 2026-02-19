@@ -475,8 +475,6 @@ body {
   text-align: center;
 }
 .price-highlight .price-label { font-size: 11px; opacity: 0.8; margin-bottom: 4px; }
-.price-highlight .price-kg { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
-.price-highlight .price-lb { font-size: 13px; opacity: 0.85; margin-top: 2px; }
 
 .margin-row {
   display: flex;
