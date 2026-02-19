@@ -154,6 +154,7 @@ function populateFromData(data, isCopy = false) {
   if (data.usd_ars_rate) document.getElementById('usd-ars-rate').value = data.usd_ars_rate;
   if (data.client_comments) document.getElementById('client-comments').value = data.client_comments;
   if (data.notes) document.getElementById('quote-notes').value = data.notes;
+  if (data.alias) document.getElementById('quote-alias').value = data.alias;
   if (data.margin_pct) document.getElementById('margin-pct').value = data.margin_pct;
 
   // Producto: usar snapshot directamente para no depender del catálogo actual
@@ -1140,6 +1141,7 @@ function buildQuoteObject(status) {
     usd_ars_rate: parseNum(document.getElementById('usd-ars-rate').value) || null,
     client_comments: document.getElementById('client-comments').value.trim(),
     notes: document.getElementById('quote-notes').value.trim(),
+    alias: document.getElementById('quote-alias')?.value.trim() ?? '',
     selected_certs: getSelectedCerts(),
 
     product: currentProduct ? { ...currentProduct } : null,
@@ -1202,7 +1204,7 @@ async function confirmQuote() {
 // ============================================================
 // PDF / PRINT
 // ============================================================
-function printQuote(mode) {
+async function printQuote(mode) {
   const brand = BRANDS[currentBrand];
   const priceKg = parseNum(document.getElementById('price-kg').textContent.replace(/[^0-9.,]/g, '')) || 0;
   const priceLb = priceKg / 2.20462;
@@ -1317,6 +1319,36 @@ function printQuote(mode) {
     rateEl.classList.remove('visible');
   }
 
+  // Alias en PDF interno
+  const alias = document.getElementById('quote-alias')?.value.trim() ?? '';
+  const aliasEl = document.getElementById('pdf-int-alias');
+  if (aliasEl) aliasEl.textContent = alias ? ` — ${alias}` : '';
+
+  // Logística en PDF interno
+  const clientName = document.getElementById('client-name').value.trim();
+  const clientCountry = document.getElementById('client-country').value.trim();
+  const destPort = document.getElementById('client-dest-port').value.trim();
+  const leadTime = document.getElementById('lead-time').value.trim();
+  const numShipIntern = parseInt(document.getElementById('num-shipments').value) || 1;
+  const volumeKgIntern = parseNum(document.getElementById('volume-kg').value) || 0;
+  const logEl = document.getElementById('pdf-int-logistics');
+  if (logEl) {
+    const cells = [
+      ['Incoterm', incoterm || '—'],
+      ['Origen',   originPort || '—'],
+      ['Destino',  destPort || clientCountry || '—'],
+      ['País',     clientCountry || '—'],
+      ['Transporte', transportType || '—'],
+      ['Volumen',  `${volumeKgIntern.toLocaleString('es-AR')} kg`],
+      ['Embarques', numShipIntern],
+      ['Lead Time', leadTime || '—'],
+      ['Cliente',  clientName || '—'],
+    ];
+    logEl.innerHTML = `<div class="pil-grid">${
+      cells.map(([l, v]) => `<div class="pil-cell"><span class="pil-label">${l}</span><span class="pil-val">${v}</span></div>`).join('')
+    }</div>`;
+  }
+
   document.getElementById('pdf-meta-footer').textContent =
     `Created by: ${currentUser.email} — ${new Date().toLocaleString('es-AR')} — INTERNAL USE ONLY`;
 
@@ -1324,10 +1356,15 @@ function printQuote(mode) {
   document.body.classList.remove('print-client', 'print-internal');
   document.body.classList.add(mode === 'client' ? 'print-client' : 'print-internal');
 
-  setTimeout(() => {
-    window.print();
-    setTimeout(() => document.body.classList.remove('print-client', 'print-internal'), 500);
-  }, 100);
+  // Esperar que todas las imágenes del PDF carguen antes de imprimir
+  const pdfImgs = [...document.querySelectorAll('.pdf-page img')].filter(img => img.src && img.src !== window.location.href);
+  await Promise.all(pdfImgs.map(img =>
+    img.complete ? Promise.resolve() :
+    new Promise(r => { img.onload = r; img.onerror = r; })
+  ));
+
+  window.print();
+  setTimeout(() => document.body.classList.remove('print-client', 'print-internal'), 500);
 }
 
 function buildInternalTable(calc = null) {

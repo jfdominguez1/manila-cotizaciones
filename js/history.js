@@ -70,6 +70,7 @@ function renderTable(quotes) {
     <thead>
       <tr>
         <th>N°</th>
+        <th>Alias</th>
         <th>Fecha</th>
         <th>Cliente</th>
         <th>País</th>
@@ -96,6 +97,7 @@ function renderTable(quotes) {
 
     tr.innerHTML = `
       <td class="quote-number">${q.quote_number ?? '—'}</td>
+      <td class="text-small text-muted">${q.alias || '—'}</td>
       <td>${dateStr}</td>
       <td>${q.client?.name ?? '—'}</td>
       <td>${q.client?.country ?? '—'}</td>
@@ -145,11 +147,17 @@ function bindModal() {
 
   document.getElementById('btn-delete-quote').addEventListener('click', async () => {
     if (!activeQuote) return;
+    const isAdmin = currentUser?.email === 'jfdominguez@gmail.com';
     if (activeQuote.status === 'confirmed') {
-      alert('Las cotizaciones confirmadas no se pueden eliminar.');
-      return;
+      if (!isAdmin) {
+        alert('Las cotizaciones confirmadas no se pueden eliminar.');
+        return;
+      }
+      if (!confirm(`⚠️ Estás por eliminar una cotización CONFIRMADA:\n${activeQuote.quote_number}\n\nEsta acción no se puede deshacer.`)) return;
+      if (!confirm(`Confirmá de nuevo: ¿eliminar definitivamente ${activeQuote.quote_number}?`)) return;
+    } else {
+      if (!confirm(`¿Eliminar el borrador ${activeQuote.quote_number}?`)) return;
     }
-    if (!confirm(`¿Eliminar el borrador ${activeQuote.quote_number}?`)) return;
     await deleteDoc(doc(db, 'quotes', activeQuote._docId));
     closeModal();
     await loadQuotes();
@@ -164,9 +172,11 @@ function openDetail(q) {
 
   document.getElementById('modal-title').textContent = `${q.quote_number} — ${q.client?.name ?? ''}`;
 
-  // Mostrar/ocultar delete según estado
-  document.getElementById('btn-delete-quote').style.display =
-    q.status === 'draft' ? '' : 'none';
+  // Mostrar/ocultar delete según estado (admin puede borrar confirmadas)
+  const isAdmin = currentUser?.email === 'jfdominguez@gmail.com';
+  const deleteBtn = document.getElementById('btn-delete-quote');
+  deleteBtn.style.display = (q.status === 'draft' || isAdmin) ? '' : 'none';
+  deleteBtn.textContent = (q.status === 'confirmed' && isAdmin) ? 'Eliminar (Admin)' : 'Eliminar borrador';
 
   const body = document.getElementById('modal-body');
   body.innerHTML = buildDetailHTML(q);
@@ -200,6 +210,10 @@ function buildDetailHTML(q) {
     </div>
 
     <div class="detail-grid">
+      ${q.alias ? `<div class="detail-cell" style="grid-column:1/-1">
+        <div class="dc-label">Alias / Sobrenombre</div>
+        <div class="dc-val" style="font-weight:600">${q.alias}</div>
+      </div>` : ''}
       <div class="detail-cell">
         <div class="dc-label">Cliente</div>
         <div class="dc-val">${q.client?.name ?? '—'}</div>

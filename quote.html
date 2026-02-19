@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cotizaciones Manila — Nueva Cotización</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='85'>🐟</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
@@ -139,6 +140,15 @@
       </div>
     </div>
 
+    <!-- Alias / sobrenombre -->
+    <div class="panel-section">
+      <h3>Identificación</h3>
+      <div class="form-row">
+        <label>Alias / sobrenombre <span style="font-weight:400;color:var(--gray-500)">(visible en costos e historial)</span></label>
+        <input type="text" id="quote-alias" placeholder="Ej: Fresco USA Q1, Prueba Miami...">
+      </div>
+    </div>
+
     <!-- Propuesta PDF -->
     <div class="panel-section">
       <h3>Propuesta al cliente</h3>
@@ -210,9 +220,10 @@
   <!-- PÁGINA 1: INTERNA (costos) — imprime primero en PDF Costos -->
   <div class="pdf-page pdf-internal-page" id="pdf-internal-page">
     <div class="pdf-internal-title">
-      <span>Detalle de costos — <span id="pdf-int-quote-number"></span></span>
+      <span>Detalle de costos — <span id="pdf-int-quote-number"></span><span id="pdf-int-alias" class="pdf-int-alias"></span></span>
       <span class="int-sub">USO INTERNO MANILA S.A. — CONFIDENCIAL</span>
     </div>
+    <div class="pdf-int-logistics" id="pdf-int-logistics"></div>
     <table class="pdf-cost-table" id="pdf-cost-table">
       <thead>
         <tr>
@@ -350,6 +361,6 @@
 
 </div>
 
-<script type="module" src="js/quote.js?v=26"></script>
+<script type="module" src="js/quote.js?v=27"></script>
 </body>
 </html>
