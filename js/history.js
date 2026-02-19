@@ -229,6 +229,10 @@ function buildDetailHTML(q) {
         <div class="dc-val">${q.lead_time || '—'}</div>
       </div>
       <div class="detail-cell">
+        <div class="dc-label">USD/ARS</div>
+        <div class="dc-val">${q.usd_ars_rate ? `$${Number(q.usd_ars_rate).toLocaleString('es-AR')}/USD` : '—'}</div>
+      </div>
+      <div class="detail-cell">
         <div class="dc-label">Válida</div>
         <div class="dc-val">${q.valid_days ?? 15} días</div>
       </div>

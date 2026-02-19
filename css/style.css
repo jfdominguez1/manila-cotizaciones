@@ -1096,6 +1096,20 @@ body {
   .pdf-summary-box .sum-cell .sum-val { font-size: 12pt; font-weight: 800; margin-top: 0.5mm; }
   .pdf-summary-box .sum-cell .sum-sub { font-size: 7.5pt; color: #888; }
 
+  .pdf-rate-note {
+    font-size: 8pt;
+    font-weight: 600;
+    color: #555;
+    background: #f5f4f2;
+    border: 1px solid #e5e3e0;
+    border-radius: 4px;
+    padding: 2mm 4mm;
+    margin-bottom: 3mm;
+    display: none;
+  }
+  .pdf-rate-note.visible {
+    display: block;
+  }
   .pdf-meta-footer {
     font-size: 7.5pt;
     color: #aaa;

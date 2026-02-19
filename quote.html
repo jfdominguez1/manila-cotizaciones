@@ -22,7 +22,7 @@
     <a href="seed.html">Datos de ejemplo</a>
   </div>
   <div class="nav-right">
-    <span class="nav-version">v1.6</span>
+    <span class="nav-version">v1.7</span>
     <span class="nav-user" id="nav-user"></span>
     <button class="btn-logout" id="btn-logout">Salir</button>
   </div>
@@ -133,6 +133,10 @@
         <label>Lead time</label>
         <input type="text" id="lead-time" placeholder="7-10 días desde confirmación">
       </div>
+      <div class="form-row">
+        <label>Cotización del dólar (ARS/USD)</label>
+        <input type="number" id="usd-ars-rate" placeholder="Ej: 1450" min="0" step="1">
+      </div>
     </div>
 
     <!-- Propuesta PDF -->
@@ -235,6 +239,7 @@
         <div class="sum-sub" id="pdf-sum-price-lb"></div>
       </div>
     </div>
+    <div class="pdf-rate-note" id="pdf-rate-note"></div>
     <div class="pdf-meta-footer" id="pdf-meta-footer"></div>
   </div>
 
@@ -340,6 +345,6 @@
 
 </div>
 
-<script type="module" src="js/quote.js?v=14"></script>
+<script type="module" src="js/quote.js?v=16"></script>
 </body>
 </html>

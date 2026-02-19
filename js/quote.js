@@ -139,6 +139,7 @@ function populateFromData(data, isCopy = false) {
   if (data.num_shipments) document.getElementById('num-shipments').value = data.num_shipments;
   if (data.valid_days) document.getElementById('valid-days').value = data.valid_days;
   if (data.lead_time) document.getElementById('lead-time').value = data.lead_time;
+  if (data.usd_ars_rate) document.getElementById('usd-ars-rate').value = data.usd_ars_rate;
   if (data.client_comments) document.getElementById('client-comments').value = data.client_comments;
   if (data.notes) document.getElementById('quote-notes').value = data.notes;
   if (data.margin_pct) document.getElementById('margin-pct').value = data.margin_pct;
@@ -783,6 +784,7 @@ function buildQuoteObject(status) {
     transport_type: document.getElementById('transport-type').value,
     valid_days: parseInt(document.getElementById('valid-days').value) || 15,
     lead_time: document.getElementById('lead-time').value.trim(),
+    usd_ars_rate: parseFloat(document.getElementById('usd-ars-rate').value) || null,
     client_comments: document.getElementById('client-comments').value.trim(),
     notes: document.getElementById('quote-notes').value.trim(),
     selected_certs: getSelectedCerts(),
@@ -946,6 +948,17 @@ function printQuote(mode) {
   document.getElementById('pdf-sum-margin').textContent = `${document.getElementById('margin-pct').value}%`;
   document.getElementById('pdf-sum-price').textContent = `$${priceKg.toFixed(2)}`;
   document.getElementById('pdf-sum-price-lb').textContent = `$${priceLb.toFixed(2)}/lb`;
+  // Cotización del dólar
+  const usdArsRate = parseFloat(document.getElementById('usd-ars-rate').value) || null;
+  const rateEl = document.getElementById('pdf-rate-note');
+  if (usdArsRate) {
+    rateEl.textContent = `Tipo de cambio: USD 1 = ARS $${usdArsRate.toLocaleString('es-AR')} — ${today}`;
+    rateEl.classList.add('visible');
+  } else {
+    rateEl.textContent = '';
+    rateEl.classList.remove('visible');
+  }
+
   document.getElementById('pdf-meta-footer').textContent =
     `Created by: ${currentUser.email} — ${new Date().toLocaleString('es-AR')} — INTERNAL USE ONLY`;
 
