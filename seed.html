@@ -79,15 +79,22 @@
     collection, doc, setDoc, getDocs, deleteDoc, runTransaction
   } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
 
-  const user = await requireAuth();
-  document.getElementById('nav-user').textContent = user.email;
-  document.getElementById('btn-logout').addEventListener('click', logout);
+  let currentUser = null;
+
+  async function init() {
+    currentUser = await requireAuth();
+    document.getElementById('nav-user').textContent = currentUser.email;
+    document.getElementById('btn-logout').addEventListener('click', logout);
+    bindButtons();
+  }
 
   function log(id, msg, isErr = false) {
     const el = document.getElementById(id);
     el.innerHTML += `<span class="${isErr ? 'status-err' : 'status-ok'}">${msg}\n</span>`;
     el.scrollTop = el.scrollHeight;
   }
+
+  function bindButtons() {
 
   // ============================================================
   // PRODUCTOS
@@ -284,7 +291,7 @@
     const examQuote = {
       quote_number: quoteNum,
       status: 'confirmed',
-      created_by: user.email,
+      created_by: currentUser.email,
       created_at: now,
       confirmed_at: now,
 
@@ -492,6 +499,9 @@
     }
     log('log-clean', '\n→ Datos EXAM eliminados.');
   });
+  } // fin bindButtons()
+
+  init();
 </script>
 </body>
 </html>
