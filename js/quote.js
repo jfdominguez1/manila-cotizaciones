@@ -215,7 +215,7 @@ function bindPanelEvents() {
 
   document.getElementById('product-select').addEventListener('change', onProductChange);
 
-  const panelInputs = ['volume-kg', 'num-shipments', 'yield-pct', 'margin-pct'];
+  const panelInputs = ['volume-kg', 'num-shipments', 'yield-pct', 'margin-pct', 'usd-ars-rate'];
   panelInputs.forEach(id => {
     document.getElementById(id).addEventListener('input', recalculate);
   });
