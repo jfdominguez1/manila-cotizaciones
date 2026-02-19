@@ -218,6 +218,7 @@ function bindPanelEvents() {
   panelInputs.forEach(id => {
     document.getElementById(id).addEventListener('input', recalculate);
   });
+  document.getElementById('target-price').addEventListener('input', onTargetPriceChange);
 
   document.getElementById('btn-confirm').addEventListener('click', confirmQuote);
   document.getElementById('btn-save-draft').addEventListener('click', saveDraft);
@@ -640,7 +641,50 @@ function recalculate() {
     document.getElementById('btn-print-internal').disabled = true;
   }
 
+  // Sync target-price input (solo cuando no está siendo editado)
+  const targetPriceEl = document.getElementById('target-price');
+  if (targetPriceEl && document.activeElement !== targetPriceEl) {
+    targetPriceEl.value = pricePerKg > 0 ? pricePerKg.toFixed(2) : '';
+  }
+
   return { totalCostPerKg, commPerKg, pricePerKg, pricePerLb, marginPct };
+}
+
+// Back-calcular margen desde precio objetivo
+function onTargetPriceChange() {
+  const targetPrice = parseFloat(document.getElementById('target-price').value);
+  if (!targetPrice || targetPrice <= 0) { recalculate(); return; }
+
+  const volumeKg = parseFloat(document.getElementById('volume-kg').value) || 0;
+  const numShipments = parseInt(document.getElementById('num-shipments').value) || 1;
+  const yieldPct = parseFloat(document.getElementById('yield-pct').value) / 100 || 1;
+
+  let totalCost = 0;
+  layers.forEach(layer => {
+    layer.items.forEach(item => {
+      const cost = calcItemCostPerKg(item, volumeKg, numShipments);
+      totalCost += layer.applies_yield && yieldPct > 0 ? cost / yieldPct : cost;
+    });
+  });
+
+  const commFixedPerKg = volumeKg > 0
+    ? (commission.fixed_per_shipment * numShipments + commission.fixed_per_quote) / volumeKg
+    : 0;
+
+  let newMargin;
+  if (commission.base === 'cost') {
+    const commPerKg = totalCost * (commission.pct / 100) + commFixedPerKg;
+    const base = totalCost + commPerKg;
+    newMargin = base > 0 ? (targetPrice / base - 1) * 100 : 0;
+  } else {
+    const base = totalCost + commFixedPerKg;
+    newMargin = base > 0 ? (targetPrice * (1 - commission.pct / 100) / base - 1) * 100 : 0;
+  }
+
+  if (isFinite(newMargin) && newMargin >= -99) {
+    document.getElementById('margin-pct').value = Math.max(0, newMargin).toFixed(1);
+  }
+  recalculate();
 }
 
 function calcItemCostPerKg(item, volumeKg, numShipments) {
@@ -896,9 +940,8 @@ function printQuote(mode) {
 
   // ---- Página interna ----
   document.getElementById('pdf-int-quote-number').textContent = currentQuoteNumber;
-  buildInternalTable();
-
-  const calc = recalculate();
+  const calc = recalculate();   // primero calc para pasar al resumen
+  buildInternalTable(calc);     // luego tabla + breakdown con calc
   document.getElementById('pdf-sum-cost').textContent = `$${(calc?.totalCostPerKg ?? 0).toFixed(3)}`;
   document.getElementById('pdf-sum-margin').textContent = `${document.getElementById('margin-pct').value}%`;
   document.getElementById('pdf-sum-price').textContent = `$${priceKg.toFixed(2)}`;
@@ -916,7 +959,7 @@ function printQuote(mode) {
   }, 100);
 }
 
-function buildInternalTable() {
+function buildInternalTable(calc = null) {
   const tbody = document.getElementById('pdf-cost-tbody');
   tbody.innerHTML = '';
 
@@ -956,6 +999,31 @@ function buildInternalTable() {
     commRow.className = 'layer-title';
     commRow.innerHTML = `<td colspan="6">Comisión comercial (${commission.pct}% sobre ${commission.base === 'cost' ? 'costo' : 'precio venta'})</td>`;
     tbody.appendChild(commRow);
+  }
+
+  // Resumen de costos (breakdown por capa)
+  const breakdownEl = document.getElementById('pdf-cost-breakdown');
+  if (breakdownEl && calc) {
+    const { totalCostPerKg, commPerKg, pricePerKg, pricePerLb, marginPct } = calc;
+    let html = '<div class="pdf-cost-breakdown-title">Resumen por capa</div>';
+
+    layers.forEach(l => {
+      const layerTotal = l.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0);
+      if (layerTotal === 0 && l.items.length === 0) return;
+      const badge = l.applies_yield ? ' <em style="opacity:.65;font-size:7pt">(rend.)</em>' : '';
+      html += `<div class="pdf-breakdown-row"><span class="bd-label">${l.name}${badge}</span><span class="bd-val">$${layerTotal.toFixed(3)}/kg</span></div>`;
+    });
+
+    if (commPerKg > 0) {
+      html += `<div class="pdf-breakdown-row"><span class="bd-label">Comisión (${commission.pct}% s/${commission.base === 'cost' ? 'costo' : 'precio'})</span><span class="bd-val">$${commPerKg.toFixed(3)}/kg</span></div>`;
+    }
+
+    const marginAmount = pricePerKg - totalCostPerKg - commPerKg;
+    html += `<div class="pdf-breakdown-row separator"><span class="bd-label">Subtotal costos</span><span class="bd-val">$${totalCostPerKg.toFixed(3)}/kg</span></div>`;
+    html += `<div class="pdf-breakdown-row"><span class="bd-label">Margen (${(marginPct * 100).toFixed(1)}%)</span><span class="bd-val">+$${marginAmount.toFixed(3)}/kg</span></div>`;
+    html += `<div class="pdf-breakdown-row total"><span class="bd-label">Precio final</span><span class="bd-val">$${pricePerKg.toFixed(2)}/kg · $${pricePerLb.toFixed(2)}/lb</span></div>`;
+
+    breakdownEl.innerHTML = html;
   }
 }
 
