@@ -1,6 +1,6 @@
 import { requireAuth, logout, getCurrentUser } from './auth.js';
 import { db } from './firebase.js';
-import { BRANDS, CERTIFICATIONS, INCOTERMS, COST_LAYERS, COST_UNITS, CONTACT } from './config.js';
+import { BRANDS, CERTIFICATIONS, INCOTERMS, COST_LAYERS, COST_UNITS, CONTACT, parseNum } from './config.js';
 import {
   collection, doc, getDoc, getDocs, setDoc, updateDoc, runTransaction
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
@@ -384,7 +384,7 @@ function createItemRow(layerIdx, itemIdx) {
     <div class="cost-item-row2">
       <div class="item-field field-value">
         <label>Valor</label>
-        <input type="number" placeholder="0.00" value="${item.variable_value ?? ''}" step="0.01" min="0" data-field="variable_value">
+        <input type="text" inputmode="decimal" placeholder="0.00" value="${item.variable_value ?? ''}" data-field="variable_value">
       </div>
       <div class="item-field field-unit">
         <label>Unidad</label>
@@ -392,15 +392,15 @@ function createItemRow(layerIdx, itemIdx) {
       </div>
       <div class="item-field field-unitkg" style="display:${needsUnitKg ? '' : 'none'}">
         <label>kg/unidad</label>
-        <input type="number" placeholder="10" value="${item.variable_unit_kg ?? ''}" step="0.01" min="0" data-field="variable_unit_kg">
+        <input type="text" inputmode="decimal" placeholder="10" value="${item.variable_unit_kg ?? ''}" data-field="variable_unit_kg">
       </div>
       <div class="item-field field-fship">
         <label>Fijo/emb. $</label>
-        <input type="number" placeholder="0" value="${item.fixed_per_shipment ?? ''}" step="0.01" min="0" data-field="fixed_per_shipment">
+        <input type="text" inputmode="decimal" placeholder="0" value="${item.fixed_per_shipment ?? ''}" data-field="fixed_per_shipment">
       </div>
       <div class="item-field field-fquote">
         <label>Fijo/coti. $</label>
-        <input type="number" placeholder="0" value="${item.fixed_per_quote ?? ''}" step="0.01" min="0" data-field="fixed_per_quote">
+        <input type="text" inputmode="decimal" placeholder="0" value="${item.fixed_per_quote ?? ''}" data-field="fixed_per_quote">
       </div>
       <div class="item-result na" data-result="${layerIdx}-${itemIdx}">$0.000/kg</div>
     </div>
@@ -440,7 +440,8 @@ function createItemRow(layerIdx, itemIdx) {
   row.querySelectorAll('[data-field]').forEach(input => {
     input.addEventListener('input', () => {
       const field = input.dataset.field;
-      item[field] = input.type === 'number' ? (parseFloat(input.value) || 0) : input.value;
+      const numericFields = ['variable_value', 'variable_unit_kg', 'fixed_per_shipment', 'fixed_per_quote'];
+      item[field] = numericFields.includes(field) ? (parseNum(input.value) || 0) : input.value;
       if (field === 'variable_unit') {
         const needsKg = COST_UNITS.find(u => u.id === item.variable_unit)?.needs_unit_kg ?? false;
         row.querySelector('.field-unitkg').style.display = needsKg ? '' : 'none';
@@ -546,7 +547,7 @@ function renderCommissionSection(container) {
     <div class="commission-grid">
       <div>
         <label>Porcentaje</label>
-        <input type="number" id="comm-pct" value="${commission.pct}" min="0" max="100" step="0.1" placeholder="0">
+        <input type="text" inputmode="decimal" id="comm-pct" value="${commission.pct}" placeholder="0">
       </div>
       <div>
         <label>Base de cálculo</label>
@@ -557,11 +558,11 @@ function renderCommissionSection(container) {
       </div>
       <div>
         <label>Fijo/embarque ($)</label>
-        <input type="number" id="comm-fixed-ship" value="${commission.fixed_per_shipment}" min="0" step="0.01" placeholder="0">
+        <input type="text" inputmode="decimal" id="comm-fixed-ship" value="${commission.fixed_per_shipment}" placeholder="0">
       </div>
       <div>
         <label>Fijo/cotización ($)</label>
-        <input type="number" id="comm-fixed-quote" value="${commission.fixed_per_quote}" min="0" step="0.01" placeholder="0">
+        <input type="text" inputmode="decimal" id="comm-fixed-quote" value="${commission.fixed_per_quote}" placeholder="0">
       </div>
     </div>
   `;
@@ -570,10 +571,10 @@ function renderCommissionSection(container) {
 
   ['comm-pct', 'comm-base', 'comm-fixed-ship', 'comm-fixed-quote'].forEach(id => {
     document.getElementById(id).addEventListener('input', () => {
-      commission.pct = parseFloat(document.getElementById('comm-pct').value) || 0;
+      commission.pct = parseNum(document.getElementById('comm-pct').value) || 0;
       commission.base = document.getElementById('comm-base').value;
-      commission.fixed_per_shipment = parseFloat(document.getElementById('comm-fixed-ship').value) || 0;
-      commission.fixed_per_quote = parseFloat(document.getElementById('comm-fixed-quote').value) || 0;
+      commission.fixed_per_shipment = parseNum(document.getElementById('comm-fixed-ship').value) || 0;
+      commission.fixed_per_quote = parseNum(document.getElementById('comm-fixed-quote').value) || 0;
       recalculate();
     });
   });
@@ -583,11 +584,11 @@ function renderCommissionSection(container) {
 // CÁLCULO PRINCIPAL
 // ============================================================
 function recalculate() {
-  const volumeKg = parseFloat(document.getElementById('volume-kg').value) || 0;
+  const volumeKg = parseNum(document.getElementById('volume-kg').value) || 0;
   const numShipments = parseInt(document.getElementById('num-shipments').value) || 1;
-  const yieldPct = parseFloat(document.getElementById('yield-pct').value) / 100 || 1;
-  const marginPct = parseFloat(document.getElementById('margin-pct').value) / 100 || 0;
-  const usdArsRate = parseFloat(document.getElementById('usd-ars-rate').value) || 0;
+  const yieldPct = parseNum(document.getElementById('yield-pct').value) / 100 || 1;
+  const marginPct = parseNum(document.getElementById('margin-pct').value) / 100 || 0;
+  const usdArsRate = parseNum(document.getElementById('usd-ars-rate').value) || 0;
 
   // Validación: si hay ítems ARS sin tipo de cambio, advertir
   const rateInput = document.getElementById('usd-ars-rate');
@@ -699,12 +700,12 @@ function recalculate() {
 
 // Back-calcular margen desde precio objetivo
 function onTargetPriceChange() {
-  const targetPrice = parseFloat(document.getElementById('target-price').value);
+  const targetPrice = parseNum(document.getElementById('target-price').value);
   if (!targetPrice || targetPrice <= 0) { recalculate(); return; }
 
-  const volumeKg = parseFloat(document.getElementById('volume-kg').value) || 0;
+  const volumeKg = parseNum(document.getElementById('volume-kg').value) || 0;
   const numShipments = parseInt(document.getElementById('num-shipments').value) || 1;
-  const yieldPct = parseFloat(document.getElementById('yield-pct').value) / 100 || 1;
+  const yieldPct = parseNum(document.getElementById('yield-pct').value) / 100 || 1;
 
   let totalCost = 0;
   layers.forEach(layer => {
@@ -828,8 +829,8 @@ function getSelectedCerts() {
 
 function buildQuoteObject(status) {
   const calc = recalculate();
-  const pricePerKg = parseFloat(document.getElementById('price-kg').textContent.replace(/[^0-9.]/g, '')) || 0;
-  const volumeKg = parseFloat(document.getElementById('volume-kg').value) || 0;
+  const pricePerKg = parseNum(document.getElementById('price-kg').textContent.replace(/[^0-9.,]/g, '')) || 0;
+  const volumeKg = parseNum(document.getElementById('volume-kg').value) || 0;
   const numShipments = parseInt(document.getElementById('num-shipments').value) || 1;
 
   const costLayersSnapshot = layers.map(l => ({
@@ -859,7 +860,7 @@ function buildQuoteObject(status) {
     transport_type: document.getElementById('transport-type').value,
     valid_days: parseInt(document.getElementById('valid-days').value) || 15,
     lead_time: document.getElementById('lead-time').value.trim(),
-    usd_ars_rate: parseFloat(document.getElementById('usd-ars-rate').value) || null,
+    usd_ars_rate: parseNum(document.getElementById('usd-ars-rate').value) || null,
     client_comments: document.getElementById('client-comments').value.trim(),
     notes: document.getElementById('quote-notes').value.trim(),
     selected_certs: getSelectedCerts(),
@@ -867,13 +868,13 @@ function buildQuoteObject(status) {
     product: currentProduct ? { ...currentProduct } : null,
     volume_kg: volumeKg,
     num_shipments: numShipments,
-    yield_pct: parseFloat(document.getElementById('yield-pct').value) || 100,
+    yield_pct: parseNum(document.getElementById('yield-pct').value) || 100,
 
     cost_layers: costLayersSnapshot,
     commission: { ...commission },
 
     total_cost_per_kg: calc?.totalCostPerKg ?? 0,
-    margin_pct: parseFloat(document.getElementById('margin-pct').value) || 0,
+    margin_pct: parseNum(document.getElementById('margin-pct').value) || 0,
     price_per_kg: pricePerKg,
     price_per_lb: pricePerKg / 2.20462
   };
@@ -900,7 +901,7 @@ async function confirmQuote() {
     showToast('Seleccioná el Incoterm antes de confirmar', true);
     return;
   }
-  if (hasArsItems() && !(parseFloat(document.getElementById('usd-ars-rate').value) > 0)) {
+  if (hasArsItems() && !(parseNum(document.getElementById('usd-ars-rate').value) > 0)) {
     showToast('Hay ítems en ARS $ — completá la cotización del dólar para confirmar', true);
     document.getElementById('usd-ars-rate').focus();
     return;
@@ -926,7 +927,7 @@ async function confirmQuote() {
 // ============================================================
 function printQuote(mode) {
   const brand = BRANDS[currentBrand];
-  const priceKg = parseFloat(document.getElementById('price-kg').textContent.replace(/[^0-9.]/g, '')) || 0;
+  const priceKg = parseNum(document.getElementById('price-kg').textContent.replace(/[^0-9.,]/g, '')) || 0;
   const priceLb = priceKg / 2.20462;
   const incoterm = document.getElementById('incoterm-select').value;
   const originPort = document.getElementById('origin-port').value.trim();
@@ -969,7 +970,7 @@ function printQuote(mode) {
     incoterm ? `${incoterm} Point` : 'Port of Origin';
   document.getElementById('pdf-origin-val').textContent = originPort || 'Buenos Aires, Argentina';
   document.getElementById('pdf-transport-val').textContent = transportType || '—';
-  const volumeKg = parseFloat(document.getElementById('volume-kg').value) || 0;
+  const volumeKg = parseNum(document.getElementById('volume-kg').value) || 0;
   const numShip = parseInt(document.getElementById('num-shipments').value) || 1;
   document.getElementById('pdf-volume-val').textContent =
     `${volumeKg.toLocaleString()} kg — ${numShip} shipment${numShip > 1 ? 's' : ''}`;
@@ -1029,7 +1030,7 @@ function printQuote(mode) {
   document.getElementById('pdf-sum-price').textContent = `$${priceKg.toFixed(2)}`;
   document.getElementById('pdf-sum-price-lb').textContent = `$${priceLb.toFixed(2)}/lb`;
   // Cotización del dólar
-  const usdArsRate = parseFloat(document.getElementById('usd-ars-rate').value) || null;
+  const usdArsRate = parseNum(document.getElementById('usd-ars-rate').value) || null;
   const rateEl = document.getElementById('pdf-rate-note');
   if (usdArsRate) {
     rateEl.textContent = `Tipo de cambio: USD 1 = ARS $${usdArsRate.toLocaleString('es-AR')} — ${today}`;
@@ -1121,7 +1122,7 @@ function buildInternalTable(calc = null) {
     html += `<div class="pdf-breakdown-row"><span class="bd-label">Margen (${(marginPct * 100).toFixed(1)}%)</span><span class="bd-val">+$${marginAmount.toFixed(3)}/kg</span></div>`;
     html += `<div class="pdf-breakdown-row total"><span class="bd-label">Precio final</span><span class="bd-val">$${pricePerKg.toFixed(2)}/kg · $${pricePerLb.toFixed(2)}/lb</span></div>`;
 
-    const usdArsRatePdf = parseFloat(document.getElementById('usd-ars-rate').value) || 0;
+    const usdArsRatePdf = parseNum(document.getElementById('usd-ars-rate').value) || 0;
     if (hasArsItems() && usdArsRatePdf > 0) {
       html += `<div class="pdf-breakdown-row" style="margin-top:2mm;border-top:1px solid #e5e3e0;padding-top:2mm;color:#7c5a00;font-size:7pt"><span class="bd-label">💱 Tipo de cambio ARS/USD</span><span class="bd-val">$${usdArsRatePdf.toLocaleString('es-AR')}/USD</span></div>`;
     }

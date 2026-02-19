@@ -1,6 +1,6 @@
 import { requireAuth, logout } from './auth.js';
 import { db } from './firebase.js';
-import { COST_LAYERS, COST_UNITS } from './config.js';
+import { COST_LAYERS, COST_UNITS, parseNum } from './config.js';
 import {
   collection, getDocs, setDoc, deleteDoc, doc
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
@@ -235,7 +235,7 @@ async function saveProduct() {
       trim_cut: document.getElementById('p-trim').value.trim(),
       caliber: document.getElementById('p-caliber').value.trim()
     },
-    default_yield_pct: parseFloat(document.getElementById('p-yield').value) || 50,
+    default_yield_pct: parseNum(document.getElementById('p-yield').value) || 50,
     photo: selectedPhoto,
     order: parseInt(document.getElementById('p-order').value) || 0,
     notes: document.getElementById('p-notes').value.trim(),
@@ -381,11 +381,11 @@ async function saveCostItem() {
     name,
     layer: document.getElementById('c-layer').value,
     currency: document.getElementById('c-currency').value,
-    variable_value: parseFloat(document.getElementById('c-value').value) || 0,
+    variable_value: parseNum(document.getElementById('c-value').value) || 0,
     variable_unit: unit,
-    variable_unit_kg: needsKg ? (parseFloat(document.getElementById('c-unitkg').value) || null) : null,
-    fixed_per_shipment: parseFloat(document.getElementById('c-fixed-ship').value) || 0,
-    fixed_per_quote: parseFloat(document.getElementById('c-fixed-quote').value) || 0,
+    variable_unit_kg: needsKg ? (parseNum(document.getElementById('c-unitkg').value) || null) : null,
+    fixed_per_shipment: parseNum(document.getElementById('c-fixed-ship').value) || 0,
+    fixed_per_quote: parseNum(document.getElementById('c-fixed-quote').value) || 0,
     notes: document.getElementById('c-notes').value.trim()
   };
 

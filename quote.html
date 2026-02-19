@@ -22,7 +22,7 @@
     <a href="seed.html">Datos de ejemplo</a>
   </div>
   <div class="nav-right">
-    <span class="nav-version">v1.8</span>
+    <span class="nav-version">v1.9</span>
     <span class="nav-user" id="nav-user"></span>
     <button class="btn-logout" id="btn-logout">Salir</button>
   </div>
@@ -112,7 +112,7 @@
       <div class="form-row-2col">
         <div>
           <label>Volumen total (kg)</label>
-          <input type="number" id="volume-kg" placeholder="10000" min="1" step="1">
+          <input type="text" inputmode="decimal" id="volume-kg" placeholder="10000">
         </div>
         <div>
           <label>N° de embarques</label>
@@ -122,7 +122,7 @@
       <div class="form-row-2col">
         <div>
           <label>Rendimiento (%)</label>
-          <input type="number" id="yield-pct" placeholder="50" min="1" max="100" step="0.1">
+          <input type="text" inputmode="decimal" id="yield-pct" placeholder="50">
         </div>
         <div>
           <label>Validez (días)</label>
@@ -135,7 +135,7 @@
       </div>
       <div class="form-row">
         <label>Cotización del dólar (ARS/USD)</label>
-        <input type="number" id="usd-ars-rate" placeholder="Ej: 1450" min="0" step="1">
+        <input type="text" inputmode="decimal" id="usd-ars-rate" placeholder="Ej: 1450">
       </div>
     </div>
 
@@ -162,12 +162,12 @@
       <div class="cost-summary" id="cost-summary"></div>
       <div class="margin-row">
         <label>Margen</label>
-        <input type="number" id="margin-pct" value="20" min="0" max="100" step="0.1">
+        <input type="text" inputmode="decimal" id="margin-pct" value="20">
         <span class="margin-hint">%</span>
       </div>
       <div class="margin-row target-price-row">
         <label>Precio objetivo</label>
-        <input type="number" id="target-price" placeholder="—" min="0" step="0.01">
+        <input type="text" inputmode="decimal" id="target-price" placeholder="—">
         <span class="margin-hint">USD/kg</span>
       </div>
       <div class="price-highlight" id="price-highlight">
@@ -345,6 +345,6 @@
 
 </div>
 
-<script type="module" src="js/quote.js?v=17"></script>
+<script type="module" src="js/quote.js?v=18"></script>
 </body>
 </html>

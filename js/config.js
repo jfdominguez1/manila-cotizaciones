@@ -81,3 +81,12 @@ export const CONTACT = {
   email: 'info@manilapatagonia.com',
   web: 'www.manilapatagonia.com',
 };
+
+/**
+ * Parsea un valor numérico aceptando tanto punto (.) como coma (,) como separador decimal.
+ * Útil para usuarios con configuración regional argentina/europea (Windows usa coma).
+ */
+export function parseNum(str) {
+  if (str === null || str === undefined || str === '') return NaN;
+  return parseFloat(String(str).replace(',', '.'));
+}
