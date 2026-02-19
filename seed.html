@@ -72,6 +72,13 @@
     <div class="seed-log" id="log-processes">Listo para cargar...</div>
   </div>
 
+  <div class="seed-card" style="border-color:#365A6E">
+    <h2>🐟 Materias Primas — datos reales (8 ítems)</h2>
+    <p>Precios de pescado vivo en USD/kg, por talla y tipo. Capa: Materia Prima.</p>
+    <button class="btn-primary" id="btn-seed-mp" style="background:#365A6E">Cargar materias primas</button>
+    <div class="seed-log" id="log-mp">Listo para cargar...</div>
+  </div>
+
   <div class="seed-card">
     <h2>🗑 Limpiar datos de ejemplo</h2>
     <p>Elimina todos los registros con prefijo EXAM de Firestore.</p>
@@ -484,103 +491,169 @@
   // MO Servicio en ARS/kg de producto terminado
   // Rendimiento esperado en notes (se configura por ítem en la cotización)
   // ============================================================
+  // Nomenclatura:
+  //   Tch = Trucha Chica | Tgr = Trucha Grande
+  //   HON = Entero eviscerado (H&G, Headed & Gutted)
+  //   Trim A = Filet con piel y espinas (mínimo proceso)
+  //   Trim C = Filet con piel, sin espinas dorsales (PBI = Pin Bone In, PBO = Pin Bone Out)
+  //   Trim D = Filet sin piel, sin espinas (máximo proceso)
+  //   BF = Butterfly (mariposa, sin cortar en mitades)
+  //   PAN SIZE = Trucha entera eviscerada porción individual (approx 300-500g)
+  //   Ahumado = proceso completo incluyendo fileteo Trim A + salado + ahumado en caliente/frío
+  //   MO Servicio = Mano de Obra en ARS/kg de producto terminado
   const REAL_PROCESSES = [
+
+    // ── TRUCHA CHICA ─────────────────────────────────────────────
     {
       id: 'proc-tch-hon',
       layer: 'processing',
-      name: 'Tch HON — Trucha Chica entera',
+      name: 'Tch HON — Trucha Chica H&G',
       currency: 'ARS',
       variable_value: 850,
       variable_unit: 'kg',
       variable_unit_kg: null,
       fixed_per_shipment: 0,
       fixed_per_quote: 0,
-      notes: 'Rendimiento esperado: 80%'
+      notes: 'Headed & Gutted (eviscerado, sin cabeza). Rdto: 80%'
     },
     {
       id: 'proc-tch-trim-a',
       layer: 'processing',
-      name: 'Tch TRIM A — Trucha Chica Trim A',
+      name: 'Tch TRIM A — Trucha Chica Filet Skin On',
       currency: 'ARS',
       variable_value: 2000,
       variable_unit: 'kg',
       variable_unit_kg: null,
       fixed_per_shipment: 0,
       fixed_per_quote: 0,
-      notes: 'Rendimiento esperado: 70%'
+      notes: 'Filet con piel, sin espinas dorsales gruesas (pin bone in). Rdto: 70%'
+    },
+    {
+      id: 'proc-tch-trim-c-pbi',
+      layer: 'processing',
+      name: 'Tch TRIM C PBI — Trucha Chica Filet Pin Bone In',
+      currency: 'ARS',
+      variable_value: 0,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'Filet con piel, sin espinas laterales, pin bone presente. Rdto: 49%. ⚠ Precio MO pendiente de confirmar'
     },
     {
       id: 'proc-tch-trim-c-pbo',
       layer: 'processing',
-      name: 'Tch TRIM C PBO — Trucha Chica Trim C Pin Bone Out',
+      name: 'Tch TRIM C PBO — Trucha Chica Filet Pin Bone Out',
       currency: 'ARS',
       variable_value: 3500,
       variable_unit: 'kg',
       variable_unit_kg: null,
       fixed_per_shipment: 0,
       fixed_per_quote: 0,
-      notes: 'Rendimiento esperado: 48%'
+      notes: 'Filet con piel, espinas pin bone extraídas (ideal exportación USA/EU). Rdto: 48%'
     },
+    {
+      id: 'proc-tch-trim-d-pbo',
+      layer: 'processing',
+      name: 'Tch TRIM D PBO — Trucha Chica Filet Skinless PBO',
+      currency: 'ARS',
+      variable_value: 0,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'Filet sin piel, sin pin bone, máximo proceso. Rdto: 44%. ⚠ Precio MO pendiente de confirmar'
+    },
+
+    // ── TRUCHA GRANDE ─────────────────────────────────────────────
     {
       id: 'proc-tgr-hon',
       layer: 'processing',
-      name: 'Tgr HON — Trucha Grande entera',
+      name: 'Tgr HON — Trucha Grande H&G',
       currency: 'ARS',
       variable_value: 850,
       variable_unit: 'kg',
       variable_unit_kg: null,
       fixed_per_shipment: 0,
       fixed_per_quote: 0,
-      notes: 'Rendimiento esperado: 80%'
+      notes: 'Headed & Gutted (eviscerado, sin cabeza). Rdto: 80%'
     },
     {
       id: 'proc-tgr-trim-a',
       layer: 'processing',
-      name: 'Tgr TRIM A — Trucha Grande Trim A',
+      name: 'Tgr TRIM A — Trucha Grande Filet Skin On',
       currency: 'ARS',
       variable_value: 2000,
       variable_unit: 'kg',
       variable_unit_kg: null,
       fixed_per_shipment: 0,
       fixed_per_quote: 0,
-      notes: 'Rendimiento esperado: 70%'
+      notes: 'Filet con piel, sin espinas dorsales gruesas (pin bone in). Rdto: 70%'
+    },
+    {
+      id: 'proc-tgr-trim-c-pbi',
+      layer: 'processing',
+      name: 'Tgr TRIM C PBI — Trucha Grande Filet Pin Bone In',
+      currency: 'ARS',
+      variable_value: 0,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'Filet con piel, sin espinas laterales, pin bone presente. Rdto: 56%. ⚠ Precio MO pendiente de confirmar'
     },
     {
       id: 'proc-tgr-trim-c-pbo',
       layer: 'processing',
-      name: 'Tgr TRIM C PBO — Trucha Grande Trim C Pin Bone Out',
+      name: 'Tgr TRIM C PBO — Trucha Grande Filet Pin Bone Out',
       currency: 'ARS',
       variable_value: 3000,
       variable_unit: 'kg',
       variable_unit_kg: null,
       fixed_per_shipment: 0,
       fixed_per_quote: 0,
-      notes: 'Rendimiento esperado: 55%'
+      notes: 'Filet con piel, espinas pin bone extraídas (ideal exportación USA/EU). Rdto: 55%'
     },
+    {
+      id: 'proc-tgr-trim-d-pbo',
+      layer: 'processing',
+      name: 'Tgr TRIM D PBO — Trucha Grande Filet Skinless PBO',
+      currency: 'ARS',
+      variable_value: 0,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'Filet sin piel, sin pin bone, máximo proceso. Rdto: 51%. ⚠ Precio MO pendiente de confirmar'
+    },
+
+    // ── FORMATOS ESPECIALES ────────────────────────────────────────
     {
       id: 'proc-pan-size',
       layer: 'processing',
-      name: 'PAN SIZE — Trucha entera porcionada',
+      name: 'PAN SIZE — Trucha entera porción individual',
       currency: 'ARS',
       variable_value: 850,
       variable_unit: 'kg',
       variable_unit_kg: null,
       fixed_per_shipment: 0,
       fixed_per_quote: 0,
-      notes: 'Rendimiento esperado: 67%'
+      notes: 'Trucha eviscerada sin cabeza, porcionada individualmente (aprox 300-500g). Rdto: 67%'
     },
     {
       id: 'proc-bf',
       layer: 'processing',
-      name: 'BF — Butterfly',
+      name: 'BF — Butterfly (mariposa)',
       currency: 'ARS',
       variable_value: 1200,
       variable_unit: 'kg',
       variable_unit_kg: null,
       fixed_per_shipment: 0,
       fixed_per_quote: 0,
-      notes: 'Rendimiento esperado: 57%'
+      notes: 'Trucha abierta en mariposa, sin cortar en mitades, con o sin espinas según especificación. Rdto: 57%'
     },
+
+    // ── AHUMADOS ──────────────────────────────────────────────────
     {
       id: 'proc-ahum-gde-trim-a',
       layer: 'processing',
@@ -591,7 +664,7 @@
       variable_unit_kg: null,
       fixed_per_shipment: 0,
       fixed_per_quote: 0,
-      notes: 'Rendimiento esperado: 48% (incluye fileteo Trim A + ahumado)'
+      notes: 'Proceso completo: fileteo Trim A + salado en seco + ahumado en caliente. Rdto: 48%'
     },
     {
       id: 'proc-ahum-ch-trim-a',
@@ -603,7 +676,7 @@
       variable_unit_kg: null,
       fixed_per_shipment: 0,
       fixed_per_quote: 0,
-      notes: 'Rendimiento esperado: 46% (incluye fileteo Trim A + ahumado)'
+      notes: 'Proceso completo: fileteo Trim A + salado en seco + ahumado en caliente. Mayor MO por tamaño. Rdto: 46%'
     }
   ];
 
@@ -618,6 +691,124 @@
       }
     }
     log('log-processes', '\n→ Listo. Verificá en Admin → Tablas de costos → Proceso en Planta.');
+  });
+
+  // ============================================================
+  // MATERIAS PRIMAS — DATOS REALES
+  // Precios de pescado vivo en USD/kg por talla
+  // ST = Standard (sin colorante). Tallas según peso vivo de entrada.
+  // Manila Blanco / Manila Color = categoría Manila (selección propia)
+  // ============================================================
+  const REAL_MP = [
+    {
+      id: 'mp-trucha-st-400-600',
+      layer: 'raw_material',
+      name: 'MP — Trucha ST 400-600g',
+      currency: 'USD',
+      variable_value: 3.80,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'Standard sin colorante. Talla pequeña — pan-size y HON.'
+    },
+    {
+      id: 'mp-trucha-st-600-900',
+      layer: 'raw_material',
+      name: 'MP — Trucha ST 600-900g',
+      currency: 'USD',
+      variable_value: 4.00,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'Standard sin colorante. Talla media-chica.'
+    },
+    {
+      id: 'mp-trucha-st-900-1200',
+      layer: 'raw_material',
+      name: 'MP — Trucha ST Ch 900-1200g',
+      currency: 'USD',
+      variable_value: 4.20,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'Standard sin colorante. Talla chica intermedia.'
+    },
+    {
+      id: 'mp-trucha-st-1200-2200',
+      layer: 'raw_material',
+      name: 'MP — Trucha ST M 1200-2200g',
+      currency: 'USD',
+      variable_value: 4.40,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'Standard sin colorante. Talla media — la más común para filet.'
+    },
+    {
+      id: 'mp-trucha-st-2200-2800',
+      layer: 'raw_material',
+      name: 'MP — Trucha ST G 2200-2800g',
+      currency: 'USD',
+      variable_value: 4.80,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'Standard sin colorante. Talla grande — mayor rendimiento de filet.'
+    },
+    {
+      id: 'mp-trucha-st-2800up',
+      layer: 'raw_material',
+      name: 'MP — Trucha ST 2800g+',
+      currency: 'USD',
+      variable_value: 5.20,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'Standard sin colorante. Talla extra grande.'
+    },
+    {
+      id: 'mp-trucha-manila-blanco',
+      layer: 'raw_material',
+      name: 'MP — Trucha Manila Blanco',
+      currency: 'USD',
+      variable_value: 4.20,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'Categoría Manila, sin colorante artificial.'
+    },
+    {
+      id: 'mp-trucha-manila-color',
+      layer: 'raw_material',
+      name: 'MP — Trucha Manila Color',
+      currency: 'USD',
+      variable_value: 4.20,
+      variable_unit: 'kg',
+      variable_unit_kg: null,
+      fixed_per_shipment: 0,
+      fixed_per_quote: 0,
+      notes: 'Categoría Manila, con colorante natural (Carofill).'
+    }
+  ];
+
+  document.getElementById('btn-seed-mp').addEventListener('click', async () => {
+    document.getElementById('log-mp').textContent = '';
+    for (const m of REAL_MP) {
+      try {
+        await setDoc(doc(db, 'cost_tables', m.id), m);
+        log('log-mp', `✓ ${m.name} — USD $${m.variable_value.toFixed(2)}/kg`);
+      } catch (e) {
+        log('log-mp', `✗ ${m.name}: ${e.message}`, true);
+      }
+    }
+    log('log-mp', '\n→ Listo. Verificá en Admin → Tablas de costos → Materia Prima.');
   });
 
   // ============================================================

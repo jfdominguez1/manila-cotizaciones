@@ -1,9 +1,12 @@
 import { requireAuth, logout } from './auth.js';
-import { db } from './firebase.js';
+import { db, storage } from './firebase.js';
 import { COST_LAYERS, COST_UNITS, parseNum } from './config.js';
 import {
   collection, getDocs, setDoc, deleteDoc, doc
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+import {
+  ref, uploadBytes, getDownloadURL
+} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js';
 
 let currentUser = null;
 let products = [];
@@ -183,6 +186,26 @@ function renderProductList() {
   });
 }
 
+async function compressImage(file, maxDim = 1600, quality = 0.82) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+        else { width = Math.round(width * maxDim / height); height = maxDim; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      canvas.toBlob(resolve, 'image/jpeg', quality);
+    };
+    img.src = url;
+  });
+}
+
 function renderPhotoPicker(currentPhotoSrc) {
   selectedPhoto = currentPhotoSrc ?? '';
 
@@ -212,9 +235,44 @@ function renderPhotoPicker(currentPhotoSrc) {
     const item = document.createElement('div');
     item.className = 'photo-pick-item' + (src === selectedPhoto ? ' selected' : '');
     item.innerHTML = `<img src="${src}" alt="">`;
-    item.title = src.split('/').pop();
+    item.title = src.split('/').pop().replace(/^.*\//, '');
     item.addEventListener('click', () => renderPhotoPicker(src));
     gallery.appendChild(item);
+  });
+
+  // Botón subir foto nueva
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'image/*';
+  fileInput.style.display = 'none';
+  gallery.appendChild(fileInput);
+
+  const uploadBtn = document.createElement('div');
+  uploadBtn.className = 'photo-pick-item photo-pick-upload';
+  uploadBtn.title = 'Subir foto nueva';
+  uploadBtn.innerHTML = '<span>＋</span>';
+  uploadBtn.addEventListener('click', () => fileInput.click());
+  gallery.appendChild(uploadBtn);
+
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    uploadBtn.classList.add('uploading');
+    uploadBtn.innerHTML = '<span>···</span>';
+    try {
+      const blob = await compressImage(file);
+      const filename = `product-photos/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      const storageRef = ref(storage, filename);
+      await uploadBytes(storageRef, blob, { contentType: 'image/jpeg' });
+      const url = await getDownloadURL(storageRef);
+      if (!PRODUCT_PHOTOS.includes(url)) PRODUCT_PHOTOS.push(url);
+      renderPhotoPicker(url);
+    } catch (err) {
+      console.error('Upload error:', err);
+      alert('Error al subir la foto: ' + err.message);
+      uploadBtn.classList.remove('uploading');
+      uploadBtn.innerHTML = '<span>＋</span>';
+    }
   });
 }
 

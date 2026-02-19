@@ -135,12 +135,12 @@ function bindModal() {
 
   document.getElementById('btn-print-client-detail').addEventListener('click', () => {
     if (!activeQuote) return;
-    window.location.href = `quote.html?draft=${encodeURIComponent(activeQuote._docId)}&print=client`;
+    window.location.href = `quote.html?draft=${encodeURIComponent(activeQuote._docId)}&print=client&readonly=1`;
   });
 
   document.getElementById('btn-print-internal-detail').addEventListener('click', () => {
     if (!activeQuote) return;
-    window.location.href = `quote.html?draft=${encodeURIComponent(activeQuote._docId)}&print=internal`;
+    window.location.href = `quote.html?draft=${encodeURIComponent(activeQuote._docId)}&print=internal&readonly=1`;
   });
 
   document.getElementById('btn-delete-quote').addEventListener('click', async () => {

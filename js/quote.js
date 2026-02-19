@@ -31,6 +31,10 @@ let commission = {
   fixed_per_quote: 0
 };
 
+// Modo de bloqueo: 'margin' = precio se ajusta al cambiar costos
+//                 'price'  = margen se ajusta al cambiar costos
+let lockMode = 'margin';
+
 // ============================================================
 // INIT
 // ============================================================
@@ -54,7 +58,15 @@ async function init() {
     await loadDraft(draftId);
     // Auto-imprimir si viene con ?print=client o ?print=internal
     if (printMode === 'client' || printMode === 'internal') {
-      setTimeout(() => printQuote(printMode), 300);
+      const isReadOnly = params.get('readonly') === '1';
+      if (isReadOnly) {
+        // Modo solo lectura: ocultar el formulario, imprimir y volver al historial
+        document.querySelector('.quote-layout').style.display = 'none';
+        window.addEventListener('afterprint', () => {
+          window.location.href = 'history.html';
+        }, { once: true });
+      }
+      setTimeout(() => printQuote(printMode), 400);
     }
   } else if (copyId) {
     await loadCopy(copyId);
@@ -220,6 +232,13 @@ function bindPanelEvents() {
   });
   document.getElementById('incoterm-select').addEventListener('change', recalculate);
   document.getElementById('target-price').addEventListener('input', onTargetPriceChange);
+
+  // Toggle fijar margen / fijar precio
+  document.querySelectorAll('.lock-btn').forEach(btn => {
+    btn.addEventListener('click', () => setLockMode(btn.dataset.lock));
+  });
+  // Estado inicial visual del toggle
+  setLockMode('margin');
 
   document.getElementById('btn-confirm').addEventListener('click', confirmQuote);
   document.getElementById('btn-save-draft').addEventListener('click', saveDraft);
@@ -624,9 +643,11 @@ function computeEffectiveYield() {
 // ============================================================
 function recalculate() {
   const volumeKg = parseNum(document.getElementById('volume-kg').value) || 0;
-  const numShipments = parseInt(document.getElementById('num-shipments').value) || 1;
+  const numShipmentsEl = document.getElementById('num-shipments');
+  if (volumeKg === 0 && parseInt(numShipmentsEl.value) > 1) numShipmentsEl.value = 1;
+  const numShipments = parseInt(numShipmentsEl.value) || 1;
   const effectiveYield = computeEffectiveYield();  // producto de yields de Proceso en Planta
-  const marginPct = parseNum(document.getElementById('margin-pct').value) / 100 || 0;
+  let marginPct = parseNum(document.getElementById('margin-pct').value) / 100 || 0;
   const usdArsRate = parseNum(document.getElementById('usd-ars-rate').value) || 0;
 
   // Actualizar display del yield efectivo en header de Proceso en Planta
@@ -696,6 +717,35 @@ function recalculate() {
     if (totalEl) totalEl.textContent = `$${layerTotal.toFixed(3)}/kg`;
   });
 
+  // Si "Fijar precio": back-calcular margen desde el precio objetivo antes de calcular comisión
+  if (lockMode === 'price') {
+    const tp = parseNum(document.getElementById('target-price').value);
+    if (tp > 0) {
+      const cfl = volumeKg > 0
+        ? (commission.fixed_per_shipment * numShipments + commission.fixed_per_quote) / volumeKg
+        : 0;
+      let nm;
+      if (commission.base === 'cost') {
+        const base = totalCostPerKg * (1 + commission.pct / 100) + cfl;
+        nm = base > 0 ? (tp / base - 1) * 100 : 0;
+      } else if (commission.base === 'plant_exit') {
+        const pe = getPlantExitCost();
+        const base = totalCostPerKg + pe * (commission.pct / 100);
+        nm = base > 0 ? ((tp - cfl) / base - 1) * 100 : 0;
+      } else {
+        const netP = tp * (1 - commission.pct / 100) - cfl;
+        nm = totalCostPerKg > 0 ? (netP / totalCostPerKg - 1) * 100 : 0;
+      }
+      if (isFinite(nm) && nm >= -99) {
+        marginPct = Math.max(0, nm) / 100;
+        const marginEl = document.getElementById('margin-pct');
+        if (document.activeElement !== marginEl) {
+          marginEl.value = Math.max(0, nm).toFixed(1);
+        }
+      }
+    }
+  }
+
   // Comisión
   const commFixedPerKg = volumeKg > 0
     ? (commission.fixed_per_shipment * numShipments + commission.fixed_per_quote) / volumeKg
@@ -745,14 +795,17 @@ function recalculate() {
     document.getElementById('btn-print-internal').disabled = true;
   }
 
-  // Sync target-price input (solo cuando no está siendo editado)
+  // Sync target-price input (solo en modo margen fijo y cuando no está siendo editado)
   const targetPriceEl = document.getElementById('target-price');
-  if (targetPriceEl && document.activeElement !== targetPriceEl) {
+  if (lockMode !== 'price' && targetPriceEl && document.activeElement !== targetPriceEl) {
     targetPriceEl.value = pricePerKg > 0 ? pricePerKg.toFixed(2) : '';
   }
 
   // Checklist Incoterm
   renderIncotermCoverage();
+
+  // Advertencias de incoherencia
+  renderWarnings(effectiveYield, totalCostPerKg, marginPct);
 
   return { totalCostPerKg, commPerKg, pricePerKg, pricePerLb, marginPct };
 }
@@ -763,7 +816,9 @@ function onTargetPriceChange() {
   if (!targetPrice || targetPrice <= 0) { recalculate(); return; }
 
   const volumeKg = parseNum(document.getElementById('volume-kg').value) || 0;
-  const numShipments = parseInt(document.getElementById('num-shipments').value) || 1;
+  const numShipmentsEl2 = document.getElementById('num-shipments');
+  if (volumeKg === 0 && parseInt(numShipmentsEl2.value) > 1) numShipmentsEl2.value = 1;
+  const numShipments = parseInt(numShipmentsEl2.value) || 1;
   const effectiveYield = computeEffectiveYield();
 
   let totalCost = 0;
@@ -801,6 +856,81 @@ function onTargetPriceChange() {
     document.getElementById('margin-pct').value = Math.max(0, newMargin).toFixed(1);
   }
   recalculate();
+}
+
+// ============================================================
+// TOGGLE: FIJAR MARGEN / FIJAR PRECIO
+// ============================================================
+function setLockMode(mode) {
+  lockMode = mode;
+  document.querySelectorAll('.lock-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.lock === mode);
+  });
+  const marginEl = document.getElementById('margin-pct');
+  const priceEl  = document.getElementById('target-price');
+  if (mode === 'price') {
+    marginEl.classList.add('field-computed');
+    priceEl.classList.remove('field-computed');
+  } else {
+    marginEl.classList.remove('field-computed');
+    priceEl.classList.add('field-computed');
+  }
+  recalculate();
+}
+
+// ============================================================
+// ADVERTENCIAS DE INCOHERENCIA
+// ============================================================
+function renderWarnings(effectiveYield, totalCostPerKg, marginPct) {
+  const container = document.getElementById('quote-warnings');
+  if (!container) return;
+
+  const warnings = [];
+
+  // Sin materia prima
+  const mpLayer = layers.find(l => l.id === 'raw_material');
+  if (mpLayer && mpLayer.items.length === 0) {
+    warnings.push('Sin materia prima — ¿falta agregar el costo del pescado?');
+  }
+
+  // Sin proceso en planta (sin MO)
+  const procLayer = layers.find(l => l.id === 'processing');
+  if (procLayer && procLayer.items.length === 0) {
+    warnings.push('Sin Proceso en Planta — el costo de mano de obra no está incluido.');
+  }
+
+  // Rendimiento efectivo al 100% con materia prima cargada
+  if (mpLayer && mpLayer.items.length > 0 && effectiveYield >= 0.99) {
+    warnings.push('Rendimiento 100% — el costo de MP no está ajustado por merma. ¿Olvidaste agregar el proceso?');
+  }
+
+  // Margen negativo o cero
+  if (totalCostPerKg > 0 && marginPct <= 0) {
+    warnings.push('Margen 0% o negativo — la cotización no genera ganancia.');
+  }
+
+  // Margen mayor al 100%
+  if (marginPct > 1) {
+    warnings.push(`Margen ${(marginPct * 100).toFixed(0)}% — ¿es correcto? Parece muy alto.`);
+  }
+
+  // Sin embalaje con materia prima cargada
+  const packLayer = layers.find(l => l.id === 'packaging');
+  if (mpLayer && mpLayer.items.length > 0 && packLayer && packLayer.items.length === 0) {
+    warnings.push('Sin Materiales y Embalaje — ¿el packaging está incluido?');
+  }
+
+  // Render
+  if (warnings.length === 0) {
+    container.innerHTML = '';
+    container.style.display = 'none';
+    return;
+  }
+
+  container.style.display = '';
+  container.innerHTML = warnings.map(w =>
+    `<div class="quote-warning-item">⚠ ${w}</div>`
+  ).join('');
 }
 
 // Costo por kg en la moneda propia del ítem (ARS o USD, sin convertir)

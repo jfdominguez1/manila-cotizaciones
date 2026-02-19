@@ -22,7 +22,7 @@
     <a href="seed.html">Datos de ejemplo</a>
   </div>
   <div class="nav-right">
-    <span class="nav-version">v2.0</span>
+    <span class="nav-version">v2.1</span>
     <span class="nav-user" id="nav-user"></span>
     <button class="btn-logout" id="btn-logout">Salir</button>
   </div>
@@ -165,11 +165,16 @@
         <input type="text" inputmode="decimal" id="margin-pct" value="20">
         <span class="margin-hint">%</span>
       </div>
+      <div class="lock-toggle">
+        <button class="lock-btn active" data-lock="margin">Fijar margen</button>
+        <button class="lock-btn" data-lock="price">Fijar precio</button>
+      </div>
       <div class="margin-row target-price-row">
         <label>Precio objetivo</label>
         <input type="text" inputmode="decimal" id="target-price" placeholder="—">
         <span class="margin-hint">USD/kg</span>
       </div>
+      <div class="quote-warnings" id="quote-warnings"></div>
       <div class="price-highlight" id="price-highlight">
         <div class="price-label">Precio de venta</div>
         <div class="price-both">
@@ -345,6 +350,6 @@
 
 </div>
 
-<script type="module" src="js/quote.js?v=23"></script>
+<script type="module" src="js/quote.js?v=26"></script>
 </body>
 </html>

@@ -507,6 +507,53 @@ body {
 }
 .margin-row input:focus { border-color: var(--accent); }
 .margin-row .margin-hint { font-size: 11px; color: var(--gray-400); }
+.margin-row input.field-computed {
+  background: var(--gray-50);
+  color: var(--gray-400);
+  border-style: dashed;
+}
+
+/* Toggle fijar margen / precio */
+.lock-toggle {
+  display: flex;
+  border: 1px solid var(--gray-200);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.lock-btn {
+  flex: 1;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--gray-500);
+  font-family: var(--font);
+  transition: background 0.15s, color 0.15s;
+}
+.lock-btn:hover { background: var(--gray-100); }
+.lock-btn.active { background: var(--carbon); color: #fff; }
+
+/* Advertencias de incoherencia */
+.quote-warnings {
+  display: none;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.quote-warning-item {
+  background: #fff5f5;
+  border-left: 3px solid #e53e3e;
+  color: #c53030;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 7px 10px;
+  line-height: 1.4;
+  margin-bottom: 2px;
+}
+.quote-warning-item:last-child { margin-bottom: 0; }
 
 .panel-actions {
   padding: 16px 20px;
@@ -951,10 +998,11 @@ label.rate-warning-label {
   }
   .pdf-incoterm-label {
     font-size: 8.5pt;
-    opacity: 0.75;
+    opacity: 1;
+    font-weight: 700;
     margin-bottom: 2mm;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.8px;
   }
   .pdf-prices-row {
     display: flex;
@@ -967,9 +1015,10 @@ label.rate-warning-label {
   }
   .pdf-price-val {
     display: block;
+    font-family: 'Playfair Display', Georgia, serif;
     font-size: 28pt;
-    font-weight: 800;
-    letter-spacing: -1px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
     line-height: 1;
   }
   .pdf-price-unit-label {
@@ -1030,7 +1079,7 @@ label.rate-warning-label {
     padding: 2mm 4mm;
     font-size: 7.5pt;
   }
-  .pdf-cert-item img { height: 22px; }
+  .pdf-cert-item img { height: 30px; }
   .pdf-cert-badge {
     background: #f0f0f0;
     padding: 2px 7px;
@@ -1549,6 +1598,15 @@ label.rate-warning-label {
 .photo-pick-none:hover { border-color: var(--orange); color: var(--orange); }
 .photo-pick-none.selected { border-color: var(--gray-400); border-style: solid; }
 
+.photo-pick-upload {
+  display: flex; align-items: center; justify-content: center;
+  border-style: dashed !important;
+  color: var(--gray-400);
+  font-size: 18px;
+}
+.photo-pick-upload:hover { border-color: var(--green) !important; color: var(--green); }
+.photo-pick-upload.uploading { opacity: 0.5; pointer-events: none; }
+
 .admin-form-actions {
   display: flex;
   gap: 10px;
@@ -1840,8 +1898,8 @@ label.rate-warning-label {
   color: #2e7d32;
 }
 .incoterm-check.missing {
-  background: #fff3e0;
-  color: #e65100;
+  background: var(--gray-100);
+  color: var(--gray-500);
 }
 
 /* ============================================================
