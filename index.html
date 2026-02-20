@@ -16,13 +16,24 @@
   <span class="nav-title">Cotizaciones</span>
   <div class="nav-links">
     <a href="index.html" class="active">Dashboard</a>
-    <a href="quote.html">Nueva Cotización</a>
-    <a href="history.html">Historial</a>
+    <div class="nav-dropdown">
+      <button class="nav-dropdown-label">Export <span class="nav-dropdown-arrow">▾</span></button>
+      <div class="nav-dropdown-menu">
+        <a href="quote.html">Nueva Export</a>
+        <a href="history.html">Historial Export</a>
+      </div>
+    </div>
+    <div class="nav-dropdown">
+      <button class="nav-dropdown-label">Local <span class="nav-dropdown-arrow">▾</span></button>
+      <div class="nav-dropdown-menu">
+        <a href="quote-local.html">Nueva Local</a>
+        <a href="history-local.html">Historial Local</a>
+      </div>
+    </div>
     <a href="admin.html">Admin</a>
-    <a href="seed.html">Datos de ejemplo</a>
   </div>
   <div class="nav-right">
-    <span class="nav-version">v2.2</span>
+    <span class="nav-version">v2.3</span>
     <span class="nav-user" id="nav-user"></span>
     <button class="btn-logout" id="btn-logout">Salir</button>
   </div>
@@ -35,27 +46,36 @@
   <div class="dash-cards">
     <a href="quote.html" class="dash-card">
       <div class="dash-card-icon">✏️</div>
-      <div class="dash-card-title">Nueva cotización</div>
-      <div class="dash-card-desc">Construir una cotización nueva con cálculo de costos y márgenes en tiempo real.</div>
+      <div class="dash-card-title">Nueva Export</div>
+      <div class="dash-card-desc">Cotización de exportación en USD con Incoterms y logística internacional.</div>
     </a>
-    <a href="history.html" class="dash-card">
-      <div class="dash-card-icon">📋</div>
-      <div class="dash-card-title">Historial</div>
-      <div class="dash-card-desc">Consultar cotizaciones confirmadas y borradores. Abrir como modelo para duplicar.</div>
+    <a href="quote-local.html" class="dash-card">
+      <div class="dash-card-icon">🏠</div>
+      <div class="dash-card-title">Nueva Local</div>
+      <div class="dash-card-desc">Cotización mercado local en ARS con condiciones de entrega y pago.</div>
     </a>
     <a href="admin.html" class="dash-card">
       <div class="dash-card-icon">⚙️</div>
       <div class="dash-card-title">Administración</div>
-      <div class="dash-card-desc">Gestionar catálogo de productos y tablas de costos de referencia.</div>
+      <div class="dash-card-desc">Gestionar catálogo de productos (export + local) y tablas de costos.</div>
     </a>
   </div>
 
-  <!-- Últimas cotizaciones -->
+  <!-- Últimas cotizaciones EXPORT -->
   <div class="dash-section-title">
-    Últimas cotizaciones
+    Últimas cotizaciones — Export <span class="dash-section-badge export">USD</span>
     <a href="history.html">Ver todas →</a>
   </div>
-  <div id="recent-quotes">
+  <div id="recent-quotes-export">
+    <div class="empty-state"><p>Cargando...</p></div>
+  </div>
+
+  <!-- Últimas cotizaciones LOCAL -->
+  <div class="dash-section-title" style="margin-top:28px">
+    Últimas cotizaciones — Local <span class="dash-section-badge local">ARS</span>
+    <a href="history-local.html">Ver todas →</a>
+  </div>
+  <div id="recent-quotes-local">
     <div class="empty-state"><p>Cargando...</p></div>
   </div>
 
@@ -65,17 +85,17 @@
     <div class="dash-card" style="cursor:default">
       <div class="dash-card-icon">✅</div>
       <div class="dash-card-title" id="stat-confirmed">—</div>
-      <div class="dash-card-desc">Cotizaciones confirmadas</div>
+      <div class="dash-card-desc">Cotizaciones confirmadas (total)</div>
     </div>
     <div class="dash-card" style="cursor:default">
       <div class="dash-card-icon">📝</div>
       <div class="dash-card-title" id="stat-drafts">—</div>
-      <div class="dash-card-desc">Borradores pendientes</div>
+      <div class="dash-card-desc">Borradores pendientes (total)</div>
     </div>
     <div class="dash-card" style="cursor:default">
       <div class="dash-card-icon">📦</div>
       <div class="dash-card-title" id="stat-products">—</div>
-      <div class="dash-card-desc">Productos en catálogo</div>
+      <div class="dash-card-desc">Productos en catálogo (export + local)</div>
     </div>
   </div>
 
@@ -84,7 +104,7 @@
 <script type="module">
   import { requireAuth, logout } from './js/auth.js';
   import { db } from './js/firebase.js';
-  import { collection, getDocs, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+  import { collection, getDocs, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
 
   async function init() {
     const user = await requireAuth();
@@ -93,24 +113,35 @@
     document.getElementById('dash-greeting').textContent =
       `Hola, ${user.email.split('@')[0]} — ${new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}`;
 
-    const [quotesSnap, productsSnap] = await Promise.all([
+    const [quotesSnap, quotesLocalSnap, productsSnap, productsLocalSnap] = await Promise.all([
       getDocs(query(collection(db, 'quotes'), orderBy('created_at', 'desc'))),
-      getDocs(collection(db, 'products'))
+      getDocs(query(collection(db, 'quotes-local'), orderBy('created_at', 'desc'))),
+      getDocs(collection(db, 'products')),
+      getDocs(collection(db, 'products-local'))
     ]);
 
     const quotes = quotesSnap.docs.map(d => d.data());
-    const confirmed = quotes.filter(q => q.status === 'confirmed').length;
-    const drafts = quotes.filter(q => q.status === 'draft').length;
+    const quotesLocal = quotesLocalSnap.docs.map(d => d.data());
+
+    const allQuotes = [...quotes, ...quotesLocal];
+    const confirmed = allQuotes.filter(q => q.status === 'confirmed').length;
+    const drafts = allQuotes.filter(q => q.status === 'draft').length;
 
     document.getElementById('stat-confirmed').textContent = confirmed;
     document.getElementById('stat-drafts').textContent = drafts;
-    document.getElementById('stat-products').textContent = productsSnap.size;
+    document.getElementById('stat-products').textContent = productsSnap.size + productsLocalSnap.size;
 
-    // Últimas 6 cotizaciones
-    const recent = quotes.slice(0, 6);
-    const container = document.getElementById('recent-quotes');
+    // Últimas 5 export
+    renderRecentExport(quotes.slice(0, 5));
+
+    // Últimas 5 local
+    renderRecentLocal(quotesLocal.slice(0, 5));
+  }
+
+  function renderRecentExport(recent) {
+    const container = document.getElementById('recent-quotes-export');
     if (!recent.length) {
-      container.innerHTML = `<div class="empty-state"><p>No hay cotizaciones todavía. <a href="quote.html">Crear la primera →</a></p></div>`;
+      container.innerHTML = `<div class="empty-state"><p>No hay cotizaciones export. <a href="quote.html">Crear la primera →</a></p></div>`;
       return;
     }
 
@@ -125,8 +156,8 @@
           <th>Cliente</th>
           <th>Producto</th>
           <th>Incoterm</th>
-          <th>Precio/kg</th>
-          <th>Precio/lb</th>
+          <th>USD/kg</th>
+          <th>USD/lb</th>
           <th>Estado</th>
         </tr>
       </thead>
@@ -151,6 +182,56 @@
         <td><span class="status-badge ${q.status}">${q.status === 'confirmed' ? 'Confirmada' : 'Borrador'}</span></td>
       `;
       tr.addEventListener('click', () => { window.location.href = 'history.html'; });
+      tbody.appendChild(tr);
+    });
+    container.innerHTML = '';
+    container.appendChild(table);
+  }
+
+  function renderRecentLocal(recent) {
+    const container = document.getElementById('recent-quotes-local');
+    if (!recent.length) {
+      container.innerHTML = `<div class="empty-state"><p>No hay cotizaciones locales. <a href="quote-local.html">Crear la primera →</a></p></div>`;
+      return;
+    }
+
+    const table = document.createElement('table');
+    table.className = 'quotes-table';
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>N°</th>
+          <th>Alias</th>
+          <th>Fecha</th>
+          <th>Cliente</th>
+          <th>Producto</th>
+          <th>Entrega</th>
+          <th>ARS/kg</th>
+          <th>Pago</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `;
+    const tbody = table.querySelector('tbody');
+    recent.forEach(q => {
+      const tr = document.createElement('tr');
+      tr.style.cursor = 'pointer';
+      const dateStr = q.created_at
+        ? new Date(q.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        : '—';
+      tr.innerHTML = `
+        <td class="quote-number">${q.quote_number ?? '—'}</td>
+        <td class="text-small text-muted">${q.alias || '—'}</td>
+        <td>${dateStr}</td>
+        <td>${q.client?.name ?? '—'}</td>
+        <td>${q.product?.name ?? '—'}</td>
+        <td>${q.delivery_term ?? '—'}</td>
+        <td class="num">$${Math.round(q.price_per_kg_ars ?? 0).toLocaleString('es-AR')}</td>
+        <td class="text-small">${q.payment_term_label ?? '—'}</td>
+        <td><span class="status-badge ${q.status}">${q.status === 'confirmed' ? 'Confirmada' : 'Borrador'}</span></td>
+      `;
+      tr.addEventListener('click', () => { window.location.href = 'history-local.html'; });
       tbody.appendChild(tr);
     });
     container.innerHTML = '';

@@ -1990,6 +1990,197 @@ label.rate-warning-label {
 }
 
 /* ============================================================
+   NAV DROPDOWNS — Export / Local
+   ============================================================ */
+.nav-dropdown {
+  position: relative;
+}
+.nav-dropdown > .nav-dropdown-label {
+  color: rgba(255,255,255,0.65);
+  text-decoration: none;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  transition: all 0.15s;
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-family: var(--font);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.nav-dropdown > .nav-dropdown-label:hover,
+.nav-dropdown.has-active > .nav-dropdown-label {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+}
+.nav-dropdown-arrow {
+  font-size: 9px;
+  opacity: 0.6;
+  transition: transform 0.15s;
+}
+.nav-dropdown:hover .nav-dropdown-arrow { transform: rotate(180deg); }
+.nav-dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.18);
+  min-width: 180px;
+  padding: 6px 0;
+  z-index: 200;
+  margin-top: 4px;
+}
+.nav-dropdown:hover .nav-dropdown-menu { display: block; }
+.nav-dropdown-menu a {
+  display: block;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: var(--carbon);
+  text-decoration: none;
+  transition: background 0.1s;
+}
+.nav-dropdown-menu a:hover { background: var(--gray-100); }
+.nav-dropdown-menu a.active { color: var(--accent); font-weight: 600; }
+
+/* ============================================================
+   PAYMENT TERMS BLOCK — cotizaciones locales
+   ============================================================ */
+.payment-terms-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.payment-term-btn {
+  padding: 5px 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: 20px;
+  font-size: 12px;
+  font-family: var(--font);
+  background: #fff;
+  cursor: pointer;
+  color: var(--gray-700);
+  transition: all 0.12s;
+}
+.payment-term-btn:hover { border-color: var(--accent); color: var(--accent); }
+.payment-term-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  font-weight: 500;
+}
+
+/* Delivery term coverage (como incoterm coverage) */
+.delivery-coverage {
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  font-size: 11px;
+}
+.delivery-hint {
+  color: var(--gray-700);
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+.delivery-checklist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.delivery-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-weight: 500;
+  font-size: 10px;
+}
+.delivery-check.ok { background: #e8f5e9; color: #2e7d32; }
+.delivery-check.missing { background: var(--gray-100); color: var(--gray-500); }
+
+/* ============================================================
+   PDF LOCAL — Estilos @media print adicionales
+   ============================================================ */
+@media print {
+  /* Bloque de condiciones de pago en PDF local */
+  .pdf-payment-block {
+    background: #f9f8f7;
+    border: 1.5px solid #e5e3e0;
+    border-radius: 6px;
+    padding: 3mm 4mm;
+    margin-bottom: 4mm;
+  }
+  .pdf-payment-label {
+    font-size: 7pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #888;
+    margin-bottom: 1.5mm;
+  }
+  .pdf-payment-value {
+    font-size: 10pt;
+    font-weight: 700;
+    color: #2F2C2B;
+  }
+
+  /* Precio en ARS para PDF local */
+  .pdf-price-block.local-price .pdf-price-val {
+    font-size: 24pt;
+  }
+  .pdf-price-block.local-price .pdf-price-unit-label {
+    font-size: 8.5pt;
+  }
+
+  /* Aviso IVA */
+  .pdf-iva-notice {
+    font-size: 7.5pt;
+    color: #888;
+    text-align: center;
+    margin-top: 2mm;
+    font-style: italic;
+  }
+
+  /* Detalles producto (conservación, vida útil, etiqueta) */
+  .pdf-product-details {
+    font-size: 8pt;
+    color: #666;
+    margin-top: 1mm;
+    text-align: center;
+  }
+
+  /* Equivalente USD en PDF costos local */
+  .pdf-ars-equiv {
+    font-size: 7.5pt;
+    color: #888;
+    font-weight: 500;
+    margin-top: 1mm;
+    text-align: center;
+  }
+}
+
+/* ============================================================
+   DASHBOARD — secciones export + local
+   ============================================================ */
+.dash-section-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 600;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.dash-section-badge.export { background: #dce9f0; color: #365A6E; }
+.dash-section-badge.local  { background: #e8f5e9; color: #2e7d32; }
+
+/* ============================================================
    RESPONSIVE
    ============================================================ */
 @media (max-width: 900px) {
@@ -1999,4 +2190,7 @@ label.rate-warning-label {
   .dash-cards { grid-template-columns: 1fr; }
   .cost-item { grid-template-columns: 1fr; }
   .cost-items-header { display: none; }
+  .nav-dropdown-menu { position: static; box-shadow: none; background: rgba(255,255,255,0.08); margin-top: 0; }
+  .nav-dropdown-menu a { color: rgba(255,255,255,0.7); }
+  .nav-dropdown-menu a:hover { background: rgba(255,255,255,0.12); }
 }

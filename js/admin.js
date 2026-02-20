@@ -1,18 +1,25 @@
 import { requireAuth, logout } from './auth.js';
-import { db } from './firebase.js';
-import { COST_LAYERS, COST_UNITS, parseNum } from './config.js';
+import { db, storage } from './firebase.js';
+import { COST_LAYERS, LOCAL_COST_LAYERS, COST_UNITS, parseNum } from './config.js';
 import {
   collection, getDocs, setDoc, deleteDoc, doc
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+import {
+  ref, uploadBytes, getDownloadURL
+} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js';
 
 let currentUser = null;
 let products = [];
+let productsLocal = [];
 let costItems = [];
 let editingProductId = null;
 let editingCostId = null;
+let editingProductLocalId = null;
 let selectedPhoto = '';
+let selectedPhotoLocal = '';
 let caliberEntries = [];  // [{ min, max, unit }]
 let localPhotos = [];    // fotos propias del producto en edición
+let localPhotosLocal = [];  // fotos propias del producto local en edición
 
 // Conversión de unidades a gramos
 const CAL_TO_G = { g: 1, kg: 1000, oz: 28.3495, lb: 453.592 };
@@ -127,8 +134,9 @@ async function init() {
   document.getElementById('btn-logout').addEventListener('click', logout);
 
   bindTabs();
-  await Promise.all([loadProducts(), loadCostItems()]);
+  await Promise.all([loadProducts(), loadProductsLocal(), loadCostItems()]);
   bindProductForm();
+  bindProductLocalForm();
   bindCostForm();
 }
 
@@ -206,6 +214,35 @@ async function compressToBase64(file, maxDim = 600, quality = 0.78) {
     img.onerror = () => reject(new Error('No se pudo cargar la imagen'));
     img.src = url;
   });
+}
+
+// Sube imagen a Firebase Storage y retorna URL pública
+async function uploadProductPhoto(file, productId, collection = 'products') {
+  // Comprimir a canvas → blob JPEG
+  const img = new Image();
+  const url = URL.createObjectURL(file);
+  const blob = await new Promise((resolve, reject) => {
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      const maxDim = 800;
+      if (width > maxDim || height > maxDim) {
+        if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+        else { width = Math.round(width * maxDim / height); height = maxDim; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('No se pudo crear blob')), 'image/jpeg', 0.82);
+    };
+    img.onerror = () => reject(new Error('No se pudo cargar la imagen'));
+    img.src = url;
+  });
+
+  const fileName = `${collection}/${productId}/${Date.now()}.jpg`;
+  const storageRef = ref(storage, fileName);
+  await uploadBytes(storageRef, blob);
+  return getDownloadURL(storageRef);
 }
 
 function renderPhotoPicker(currentPhotoSrc) {
@@ -291,12 +328,13 @@ function renderPhotoPicker(currentPhotoSrc) {
     uploadLabel.classList.add('uploading');
     uploadLabel.querySelector('span').textContent = '···';
     try {
-      const dataUrl = await compressToBase64(file);
-      localPhotos.push(dataUrl);
-      renderPhotoPicker(dataUrl);
+      const productId = editingProductId || 'new-' + Date.now();
+      const photoUrl = await uploadProductPhoto(file, productId, 'products');
+      localPhotos.push(photoUrl);
+      renderPhotoPicker(photoUrl);
     } catch (err) {
-      console.error('Error procesando imagen:', err);
-      alert('Error al procesar la imagen: ' + err.message);
+      console.error('Error subiendo imagen:', err);
+      alert('Error al subir la imagen: ' + err.message);
       uploadLabel.classList.remove('uploading');
       uploadLabel.querySelector('span').textContent = '＋';
     }
@@ -467,16 +505,22 @@ function renderCostList() {
     return;
   }
 
+  // Todas las capas (export + local)
+  const ALL_LAYERS = [
+    ...COST_LAYERS,
+    ...LOCAL_COST_LAYERS.filter(l => !COST_LAYERS.find(cl => cl.id === l.id))
+  ];
+
   // Agrupar por capa
   const byLayer = {};
-  COST_LAYERS.forEach(l => { byLayer[l.id] = []; });
+  ALL_LAYERS.forEach(l => { byLayer[l.id] = []; });
   costItems.forEach(item => {
     if (!byLayer[item.layer]) byLayer[item.layer] = [];
     byLayer[item.layer].push(item);
   });
 
   container.innerHTML = '';
-  COST_LAYERS.forEach(layer => {
+  ALL_LAYERS.forEach(layer => {
     const items = byLayer[layer.id] ?? [];
     if (!items.length) return;
 
@@ -596,6 +640,243 @@ async function deleteCostItem() {
   await deleteDoc(doc(db, 'cost_tables', editingCostId));
   await loadCostItems();
   closeCostForm();
+}
+
+// ============================================================
+// PRODUCTOS LOCAL
+// ============================================================
+async function loadProductsLocal() {
+  const snap = await getDocs(collection(db, 'products-local'));
+  productsLocal = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  productsLocal.sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+  renderProductLocalList();
+}
+
+function renderProductLocalList() {
+  const container = document.getElementById('products-local-list');
+  if (!productsLocal.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">📦</div><p>No hay productos locales. Creá el primero.</p></div>`;
+    return;
+  }
+  container.innerHTML = '';
+  productsLocal.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'admin-card';
+    const thumbHTML = p.photo
+      ? `<img class="admin-card-thumb" src="${p.photo}" alt="${p.name}">`
+      : `<div class="admin-card-thumb" style="display:flex;align-items:center;justify-content:center;font-size:22px">📦</div>`;
+    card.innerHTML = `
+      ${thumbHTML}
+      <div class="admin-card-body">
+        <div class="admin-card-name">${p.name}</div>
+        <div class="admin-card-sub">${p.presentation ?? ''} · Rend: ${p.default_yield_pct ?? '—'}%</div>
+      </div>
+      <div class="admin-card-actions">
+        <button class="btn-secondary" style="padding:6px 12px;font-size:12px" data-edit-local="${p.id}">Editar</button>
+      </div>
+    `;
+    card.querySelector('[data-edit-local]').addEventListener('click', () => openProductLocalForm(p.id));
+    container.appendChild(card);
+  });
+}
+
+function bindProductLocalForm() {
+  document.getElementById('btn-new-product-local').addEventListener('click', () => openProductLocalForm(null));
+  document.getElementById('btn-cancel-product-local').addEventListener('click', () => closeProductLocalForm());
+  document.getElementById('btn-save-product-local').addEventListener('click', saveProductLocal);
+  document.getElementById('btn-delete-product-local').addEventListener('click', deleteProductLocal);
+
+  // Auto-fill shelf life cuando cambia conservación
+  document.getElementById('pl-conservation').addEventListener('change', () => {
+    const conservation = document.getElementById('pl-conservation').value;
+    const shelfInput = document.getElementById('pl-shelf-life');
+    if (conservation === 'refrigerado') shelfInput.value = 15;
+    else if (conservation === 'congelado') shelfInput.value = 365;
+  });
+}
+
+function renderPhotoPickerLocal(currentPhotoSrc) {
+  selectedPhotoLocal = currentPhotoSrc ?? '';
+
+  const preview = document.getElementById('pl-photo-preview');
+  if (selectedPhotoLocal) {
+    preview.innerHTML = `<img src="${selectedPhotoLocal}" alt="">`;
+    preview.classList.add('has-photo');
+  } else {
+    preview.innerHTML = '<span class="photo-picker-empty">Sin foto seleccionada</span>';
+    preview.classList.remove('has-photo');
+  }
+
+  const gallery = document.getElementById('pl-photo-gallery');
+  gallery.innerHTML = '';
+
+  // Opción "ninguna"
+  const noneItem = document.createElement('div');
+  noneItem.className = 'photo-pick-item photo-pick-none' + (!selectedPhotoLocal ? ' selected' : '');
+  noneItem.title = 'Sin foto';
+  noneItem.innerHTML = '<span>✕</span>';
+  noneItem.addEventListener('click', () => renderPhotoPickerLocal(''));
+  gallery.appendChild(noneItem);
+
+  // Fotos base globales
+  PRODUCT_PHOTOS.forEach(src => {
+    const item = document.createElement('div');
+    item.className = 'photo-pick-item' + (src === selectedPhotoLocal ? ' selected' : '');
+    item.innerHTML = `<img src="${src}" alt="">`;
+    item.title = src.split('/').pop();
+    item.addEventListener('click', () => renderPhotoPickerLocal(src));
+    gallery.appendChild(item);
+  });
+
+  // Fotos propias del producto local
+  localPhotosLocal.forEach((src, idx) => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'photo-pick-wrapper';
+    const item = document.createElement('div');
+    item.className = 'photo-pick-item' + (src === selectedPhotoLocal ? ' selected' : '');
+    item.innerHTML = `<img src="${src}" alt="">`;
+    item.addEventListener('click', () => renderPhotoPickerLocal(src));
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'photo-pick-del';
+    delBtn.innerHTML = '✕';
+    delBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      if (selectedPhotoLocal === src) selectedPhotoLocal = '';
+      localPhotosLocal.splice(idx, 1);
+      renderPhotoPickerLocal(selectedPhotoLocal);
+    });
+    wrapper.appendChild(item);
+    wrapper.appendChild(delBtn);
+    gallery.appendChild(wrapper);
+  });
+
+  // Botón subir foto
+  const uploadLabel = document.createElement('label');
+  uploadLabel.className = 'photo-pick-item photo-pick-upload';
+  uploadLabel.title = 'Subir foto nueva';
+  uploadLabel.style.cursor = 'pointer';
+  uploadLabel.innerHTML = '<span>＋</span>';
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'image/*';
+  fileInput.style.cssText = 'position:absolute;width:0;height:0;opacity:0;overflow:hidden;';
+  uploadLabel.appendChild(fileInput);
+  gallery.appendChild(uploadLabel);
+
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    uploadLabel.classList.add('uploading');
+    uploadLabel.querySelector('span').textContent = '···';
+    try {
+      const productId = editingProductLocalId || 'new-' + Date.now();
+      const photoUrl = await uploadProductPhoto(file, productId, 'products-local');
+      localPhotosLocal.push(photoUrl);
+      renderPhotoPickerLocal(photoUrl);
+    } catch (err) {
+      console.error('Error subiendo imagen:', err);
+      alert('Error al subir la imagen: ' + err.message);
+      uploadLabel.classList.remove('uploading');
+      uploadLabel.querySelector('span').textContent = '＋';
+    }
+  });
+}
+
+function openProductLocalForm(productId) {
+  editingProductLocalId = productId;
+  const panel = document.getElementById('product-local-form-panel');
+  const title = document.getElementById('product-local-form-title');
+  const delBtn = document.getElementById('btn-delete-product-local');
+
+  if (productId) {
+    const p = productsLocal.find(x => x.id === productId);
+    title.textContent = 'Editar producto local';
+    delBtn.style.display = '';
+    document.getElementById('pl-name').value = p.name ?? '';
+    document.getElementById('pl-presentation').value = p.presentation ?? '';
+    document.getElementById('pl-species').value = p.specs?.species ?? '';
+    document.getElementById('pl-trim').value = p.specs?.trim_cut ?? '';
+    document.getElementById('pl-caliber').value = p.specs?.caliber ?? '';
+    document.getElementById('pl-yield').value = p.default_yield_pct ?? '';
+    document.getElementById('pl-order').value = p.order ?? 0;
+    document.getElementById('pl-unit').value = p.sale_unit ?? '';
+    document.getElementById('pl-conservation').value = p.conservation ?? '';
+    document.getElementById('pl-shelf-life').value = p.shelf_life_days ?? '';
+    document.getElementById('pl-label-brand').value = p.label_brand ?? '';
+    document.getElementById('pl-notes').value = p.notes ?? '';
+    localPhotosLocal = [...(p.available_photos ?? [])];
+    renderPhotoPickerLocal(p.photo ?? '');
+  } else {
+    title.textContent = 'Nuevo producto local';
+    delBtn.style.display = 'none';
+    document.getElementById('pl-name').value = '';
+    document.getElementById('pl-presentation').value = '';
+    document.getElementById('pl-species').value = 'Trucha Arcoíris (Oncorhynchus mykiss)';
+    document.getElementById('pl-trim').value = '';
+    document.getElementById('pl-caliber').value = '';
+    document.getElementById('pl-yield').value = '50';
+    document.getElementById('pl-order').value = productsLocal.length;
+    document.getElementById('pl-unit').value = 'kg';
+    document.getElementById('pl-conservation').value = '';
+    document.getElementById('pl-shelf-life').value = '';
+    document.getElementById('pl-label-brand').value = '';
+    document.getElementById('pl-notes').value = '';
+    localPhotosLocal = [];
+    renderPhotoPickerLocal('');
+  }
+
+  panel.classList.add('open');
+  document.getElementById('pl-name').focus();
+}
+
+function closeProductLocalForm() {
+  document.getElementById('product-local-form-panel').classList.remove('open');
+  editingProductLocalId = null;
+  localPhotosLocal = [];
+}
+
+async function saveProductLocal() {
+  const name = document.getElementById('pl-name').value.trim();
+  if (!name) { alert('El nombre es obligatorio'); return; }
+
+  const id = editingProductLocalId || name.toLowerCase().replace(/[^a-z0-9áéíóúñ]+/g, '-').replace(/^-|-$/g, '');
+
+  const conservation = document.getElementById('pl-conservation').value;
+  const shelfLife = parseInt(document.getElementById('pl-shelf-life').value) || null;
+  const labelBrand = document.getElementById('pl-label-brand').value;
+
+  const product = {
+    id,
+    name,
+    presentation: document.getElementById('pl-presentation').value.trim(),
+    specs: {
+      species: document.getElementById('pl-species').value.trim(),
+      trim_cut: document.getElementById('pl-trim').value.trim(),
+      caliber: document.getElementById('pl-caliber').value.trim()
+    },
+    default_yield_pct: parseNum(document.getElementById('pl-yield').value) || 50,
+    photo: selectedPhotoLocal,
+    available_photos: [...localPhotosLocal],
+    order: parseInt(document.getElementById('pl-order').value) || 0,
+    sale_unit: document.getElementById('pl-unit').value.trim(),
+    conservation: conservation || null,
+    shelf_life_days: shelfLife,
+    label_brand: labelBrand || null,
+    notes: document.getElementById('pl-notes').value.trim()
+  };
+
+  await setDoc(doc(db, 'products-local', id), product);
+  await loadProductsLocal();
+  closeProductLocalForm();
+}
+
+async function deleteProductLocal() {
+  if (!editingProductLocalId) return;
+  if (!confirm(`¿Eliminar el producto local "${editingProductLocalId}"?`)) return;
+  await deleteDoc(doc(db, 'products-local', editingProductLocalId));
+  await loadProductsLocal();
+  closeProductLocalForm();
 }
 
 init();

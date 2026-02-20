@@ -16,13 +16,24 @@
   <span class="nav-title">Cotizaciones</span>
   <div class="nav-links">
     <a href="index.html">Dashboard</a>
-    <a href="quote.html">Nueva Cotización</a>
-    <a href="history.html">Historial</a>
+    <div class="nav-dropdown">
+      <button class="nav-dropdown-label">Export <span class="nav-dropdown-arrow">▾</span></button>
+      <div class="nav-dropdown-menu">
+        <a href="quote.html">Nueva Export</a>
+        <a href="history.html">Historial Export</a>
+      </div>
+    </div>
+    <div class="nav-dropdown">
+      <button class="nav-dropdown-label">Local <span class="nav-dropdown-arrow">▾</span></button>
+      <div class="nav-dropdown-menu">
+        <a href="quote-local.html">Nueva Local</a>
+        <a href="history-local.html">Historial Local</a>
+      </div>
+    </div>
     <a href="admin.html" class="active">Admin</a>
-    <a href="seed.html">Datos de ejemplo</a>
   </div>
   <div class="nav-right">
-    <span class="nav-version">v2.2</span>
+    <span class="nav-version">v2.3</span>
     <span class="nav-user" id="nav-user"></span>
     <button class="btn-logout" id="btn-logout">Salir</button>
   </div>
@@ -32,7 +43,8 @@
   <h1>Administración</h1>
 
   <div class="admin-tabs">
-    <button class="admin-tab active" data-tab="products">Productos</button>
+    <button class="admin-tab active" data-tab="products">Productos Export</button>
+    <button class="admin-tab" data-tab="products-local">Productos Local</button>
     <button class="admin-tab" data-tab="costs">Tablas de costos</button>
   </div>
 
@@ -119,6 +131,100 @@
     </div>
   </div>
 
+  <!-- TAB: PRODUCTOS LOCAL -->
+  <div class="admin-tab-content" id="tab-products-local">
+    <div class="admin-list-header">
+      <h2>Catálogo de productos — Mercado Local</h2>
+      <button class="btn-primary" id="btn-new-product-local">＋ Nuevo producto local</button>
+    </div>
+
+    <!-- Formulario producto local -->
+    <div class="admin-form-panel" id="product-local-form-panel">
+      <h3 id="product-local-form-title">Nuevo producto local</h3>
+      <div class="admin-form-grid">
+        <div class="admin-form-field">
+          <label>Nombre del producto *</label>
+          <input type="text" id="pl-name" placeholder="Filet de trucha fresco">
+        </div>
+        <div class="admin-form-field">
+          <label>Presentación</label>
+          <input type="text" id="pl-presentation" placeholder="Filet / Entero / Ahumado...">
+        </div>
+        <div class="admin-form-field">
+          <label>Especie</label>
+          <input type="text" id="pl-species" placeholder="Trucha Arcoíris (Oncorhynchus mykiss)">
+        </div>
+        <div class="admin-form-field">
+          <label>Corte</label>
+          <input type="text" id="pl-trim" placeholder="Con piel, sin espinas">
+        </div>
+        <div class="admin-form-field">
+          <label>Calibres</label>
+          <input type="text" id="pl-caliber" placeholder="200-400 g, 400-600 g">
+        </div>
+        <div class="admin-form-field">
+          <label>Rendimiento por defecto (%)</label>
+          <input type="text" inputmode="decimal" id="pl-yield" placeholder="50">
+        </div>
+        <div class="admin-form-field">
+          <label>Orden de visualización</label>
+          <input type="number" id="pl-order" placeholder="0" min="0">
+        </div>
+        <div class="admin-form-field">
+          <label>Unidad de venta</label>
+          <input type="text" id="pl-unit" placeholder="kg / caja de 5 kg / bandeja">
+        </div>
+        <div class="admin-form-field">
+          <label>Conservación</label>
+          <select id="pl-conservation">
+            <option value="">— Seleccionar —</option>
+            <option value="refrigerado">Refrigerado</option>
+            <option value="congelado">Congelado</option>
+          </select>
+        </div>
+        <div class="admin-form-field">
+          <label>Días de duración</label>
+          <input type="number" id="pl-shelf-life" placeholder="15" min="1">
+        </div>
+        <div class="admin-form-field">
+          <label>Etiqueta de marca</label>
+          <select id="pl-label-brand">
+            <option value="">Sin etiqueta</option>
+            <option value="manila">Manila S.A.</option>
+            <option value="patagonia">Patagonia Exquisiteces</option>
+            <option value="andes">Andes Natural Fish</option>
+          </select>
+        </div>
+      </div>
+      <!-- Foto principal -->
+      <div class="admin-form-field" style="grid-column:1/-1">
+        <label>Foto principal</label>
+        <div class="photo-picker">
+          <div class="photo-picker-preview" id="pl-photo-preview">
+            <span class="photo-picker-empty">Sin foto seleccionada</span>
+          </div>
+          <div class="photo-picker-gallery" id="pl-photo-gallery"></div>
+        </div>
+      </div>
+      <div class="admin-form-grid single">
+        <div class="admin-form-field">
+          <label>Notas / descripción</label>
+          <textarea id="pl-notes" placeholder="Descripción del producto para la cotización..."></textarea>
+        </div>
+      </div>
+      <div class="admin-form-actions">
+        <button class="btn-primary" id="btn-save-product-local">Guardar producto</button>
+        <button class="btn-secondary" id="btn-cancel-product-local">Cancelar</button>
+        <button class="btn-danger" id="btn-delete-product-local" style="margin-left:auto;display:none">Eliminar</button>
+      </div>
+    </div>
+
+    <!-- Lista de productos locales -->
+    <div class="admin-cards" id="products-local-list">
+      <div class="empty-state"><div class="empty-icon">📦</div><p>Cargando...</p></div>
+    </div>
+  </div>
+
   <!-- TAB: TABLAS DE COSTOS -->
   <div class="admin-tab-content" id="tab-costs">
     <div class="admin-list-header">
@@ -142,6 +248,7 @@
             <option value="packaging">Materiales y Embalaje</option>
             <option value="transport">Transporte Interno</option>
             <option value="export">Costos de Exportación</option>
+            <option value="distribution">Distribución (Local)</option>
             <option value="other">Otros</option>
           </select>
         </div>
@@ -199,6 +306,6 @@
 
 </div>
 
-<script type="module" src="js/admin.js?v=22"></script>
+<script type="module" src="js/admin.js?v=23"></script>
 </body>
 </html>

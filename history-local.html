@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cotizaciones Manila — Historial</title>
+  <title>Cotizaciones Manila — Historial Local</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='85'>🐟</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -16,18 +16,18 @@
   <span class="nav-title">Cotizaciones</span>
   <div class="nav-links">
     <a href="index.html">Dashboard</a>
-    <div class="nav-dropdown has-active">
+    <div class="nav-dropdown">
       <button class="nav-dropdown-label">Export <span class="nav-dropdown-arrow">▾</span></button>
       <div class="nav-dropdown-menu">
         <a href="quote.html">Nueva Export</a>
-        <a href="history.html" class="active">Historial Export</a>
+        <a href="history.html">Historial Export</a>
       </div>
     </div>
-    <div class="nav-dropdown">
+    <div class="nav-dropdown has-active">
       <button class="nav-dropdown-label">Local <span class="nav-dropdown-arrow">▾</span></button>
       <div class="nav-dropdown-menu">
         <a href="quote-local.html">Nueva Local</a>
-        <a href="history-local.html">Historial Local</a>
+        <a href="history-local.html" class="active">Historial Local</a>
       </div>
     </div>
     <a href="admin.html">Admin</a>
@@ -40,20 +40,14 @@
 </nav>
 
 <div class="history-page">
-  <h1>Historial de cotizaciones</h1>
-  <p class="history-sub">Cotizaciones confirmadas y borradores guardados</p>
+  <h1>Historial de cotizaciones — Mercado Local</h1>
+  <p class="history-sub">Cotizaciones locales confirmadas y borradores guardados</p>
 
   <div class="history-filters">
     <input type="text" id="filter-client" placeholder="Buscar cliente...">
     <input type="text" id="filter-product" placeholder="Buscar producto...">
-    <select id="filter-incoterm">
-      <option value="">Todos los Incoterms</option>
-      <option value="EXW">EXW</option>
-      <option value="FCA">FCA</option>
-      <option value="FOB">FOB</option>
-      <option value="CFR">CFR</option>
-      <option value="CIF">CIF</option>
-      <option value="DDP">DDP</option>
+    <select id="filter-delivery">
+      <option value="">Todas las entregas</option>
     </select>
     <select id="filter-status">
       <option value="">Todos</option>
@@ -93,6 +87,6 @@
   </div>
 </div>
 
-<script type="module" src="js/history.js?v=18"></script>
+<script type="module" src="js/history-local.js?v=1"></script>
 </body>
 </html>

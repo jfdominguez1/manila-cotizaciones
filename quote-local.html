@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cotizaciones Manila — Nueva Cotización</title>
+  <title>Cotizaciones Manila — Nueva Cotización Local</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='85'>🐟</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet">
@@ -17,17 +17,17 @@
   <span class="nav-title">Cotizaciones</span>
   <div class="nav-links">
     <a href="index.html">Dashboard</a>
-    <div class="nav-dropdown has-active">
+    <div class="nav-dropdown">
       <button class="nav-dropdown-label">Export <span class="nav-dropdown-arrow">▾</span></button>
       <div class="nav-dropdown-menu">
-        <a href="quote.html" class="active">Nueva Export</a>
+        <a href="quote.html">Nueva Export</a>
         <a href="history.html">Historial Export</a>
       </div>
     </div>
-    <div class="nav-dropdown">
+    <div class="nav-dropdown has-active">
       <button class="nav-dropdown-label">Local <span class="nav-dropdown-arrow">▾</span></button>
       <div class="nav-dropdown-menu">
-        <a href="quote-local.html">Nueva Local</a>
+        <a href="quote-local.html" class="active">Nueva Local</a>
         <a href="history-local.html">Historial Local</a>
       </div>
     </div>
@@ -47,7 +47,7 @@
   <aside class="quote-panel">
 
     <div class="panel-header">
-      <h2>Nueva Cotización</h2>
+      <h2>Nueva Cotización Local</h2>
       <span class="quote-number" id="panel-quote-number">—</span>
     </div>
 
@@ -68,13 +68,13 @@
     <div class="panel-section">
       <h3>Marca</h3>
       <div class="brand-switcher" id="brand-switcher">
-        <button class="brand-btn" data-brand="manila">Manila<br>S.A.</button>
-        <button class="brand-btn active" data-brand="patagonia">Patagonia<br>Exquisiteces</button>
+        <button class="brand-btn active" data-brand="manila">Manila<br>S.A.</button>
+        <button class="brand-btn" data-brand="patagonia">Patagonia<br>Exquisiteces</button>
         <button class="brand-btn" data-brand="andes">Andes<br>Natural Fish</button>
       </div>
     </div>
 
-    <!-- Cotización del dólar -->
+    <!-- Tipo de cambio -->
     <div class="panel-section">
       <h3>Tipo de cambio</h3>
       <div class="form-row">
@@ -83,12 +83,12 @@
       </div>
     </div>
 
-    <!-- Identificación propuesta -->
+    <!-- Identificación -->
     <div class="panel-section">
-      <h3>Identificación propuesta</h3>
+      <h3>Identificación</h3>
       <div class="form-row">
-        <label>Alias / sobrenombre <span style="font-weight:400;color:var(--gray-500)">(visible en costos e historial)</span></label>
-        <input type="text" id="quote-alias" placeholder="Ej: Fresco USA Q1, Prueba Miami...">
+        <label>Alias / sobrenombre</label>
+        <input type="text" id="quote-alias" placeholder="Ej: Pedido Distribuidora Sur, Prueba CABA...">
       </div>
     </div>
 
@@ -97,21 +97,21 @@
       <h3>Cliente</h3>
       <div class="form-row">
         <label>Nombre / Empresa</label>
-        <input type="text" id="client-name" placeholder="Distribuidor XYZ...">
+        <input type="text" id="client-name" placeholder="Distribuidora XYZ...">
       </div>
       <div class="form-row-2col">
         <div>
-          <label>País destino</label>
-          <input type="text" id="client-country" placeholder="USA">
+          <label>Ciudad</label>
+          <input type="text" id="client-city" placeholder="CABA, Neuquén...">
         </div>
         <div>
           <label>Contacto</label>
-          <input type="text" id="client-contact" placeholder="John Smith">
+          <input type="text" id="client-contact" placeholder="Juan Pérez">
         </div>
       </div>
       <div class="form-row">
-        <label>Ciudad / Puerto de destino</label>
-        <input type="text" id="client-dest-port" placeholder="Miami, FL — USA">
+        <label>Dirección de entrega</label>
+        <input type="text" id="client-address" placeholder="Calle, localidad...">
       </div>
     </div>
 
@@ -119,34 +119,25 @@
     <div class="panel-section">
       <h3>Operación</h3>
       <div class="form-row">
-        <label>Incoterm</label>
-        <select id="incoterm-select">
+        <label>Condición de entrega</label>
+        <select id="delivery-term-select">
           <option value="">— Seleccionar —</option>
         </select>
       </div>
-      <div id="incoterm-coverage"></div>
+      <div id="delivery-coverage"></div>
       <div class="form-row">
-        <label>Puerto / Ciudad de origen</label>
-        <input type="text" id="origin-port" placeholder="Buenos Aires, Argentina">
-      </div>
-      <div class="form-row">
-        <label>Tipo de envío</label>
+        <label>Tipo de transporte</label>
         <select id="transport-type">
           <option value="">— Seleccionar —</option>
-          <option value="Marítimo">Marítimo</option>
-          <option value="Aéreo">Aéreo</option>
-          <option value="Terrestre">Terrestre</option>
-          <option value="Marítimo Refrigerado">Marítimo Refrigerado</option>
-          <option value="Aéreo Refrigerado">Aéreo Refrigerado</option>
         </select>
       </div>
       <div class="form-row-2col">
         <div>
           <label>Volumen total (kg)</label>
-          <input type="text" inputmode="decimal" id="volume-kg" placeholder="10000">
+          <input type="text" inputmode="decimal" id="volume-kg" placeholder="500">
         </div>
         <div>
-          <label>N° de embarques</label>
+          <label>N° de entregas</label>
           <input type="number" id="num-shipments" value="1" min="1" step="1">
         </div>
       </div>
@@ -155,25 +146,31 @@
         <input type="number" id="valid-days" value="15" min="1">
       </div>
       <div class="form-row">
-        <label>Lead time</label>
-        <input type="text" id="lead-time" placeholder="7-10 días desde confirmación">
+        <label>Plazo de entrega</label>
+        <input type="text" id="lead-time" placeholder="3-5 días hábiles">
       </div>
     </div>
 
-    <!-- Propuesta PDF -->
+    <!-- Condiciones de pago -->
+    <div class="panel-section">
+      <h3>Condiciones de pago</h3>
+      <div class="payment-terms-selector" id="payment-terms-selector"></div>
+      <div class="form-row" id="custom-payment-wrap" style="display:none;margin-top:8px">
+        <label>Condición personalizada</label>
+        <input type="text" id="custom-payment" placeholder="Ej: 50% adelanto + 50% a 30 días">
+      </div>
+    </div>
+
+    <!-- Propuesta -->
     <div class="panel-section">
       <h3>Propuesta al cliente</h3>
-      <div class="form-row" id="cert-picker-wrap" style="display:none">
-        <label>Certificaciones a mostrar</label>
-        <div class="cert-checkboxes" id="cert-picker"></div>
-      </div>
       <div class="form-row">
         <label>Comentarios / condiciones para el cliente</label>
-        <textarea id="client-comments" placeholder="Condiciones de pago, packaging especial, notas de la oferta..." style="min-height:72px"></textarea>
+        <textarea id="client-comments" placeholder="Condiciones especiales, packaging, notas..." style="min-height:72px"></textarea>
       </div>
       <div class="form-row">
         <label>Notas internas (no aparecen en PDF)</label>
-        <textarea id="quote-notes" placeholder="Observaciones internas, contexto de la negociación..."></textarea>
+        <textarea id="quote-notes" placeholder="Observaciones internas..."></textarea>
       </div>
     </div>
 
@@ -193,15 +190,15 @@
       <div class="margin-row target-price-row">
         <label>Precio objetivo</label>
         <input type="text" inputmode="decimal" id="target-price" placeholder="—">
-        <span class="margin-hint">USD/kg</span>
+        <span class="margin-hint">ARS/kg</span>
       </div>
       <div class="quote-warnings" id="quote-warnings"></div>
       <div class="price-highlight" id="price-highlight">
         <div class="price-label">Precio de venta</div>
         <div class="price-both">
-          <span class="price-kg" id="price-kg">USD —</span>
+          <span class="price-kg" id="price-kg">$ —</span>
           <span class="price-sep">·</span>
-          <span class="price-lb" id="price-lb">— /lb</span>
+          <span class="price-lb" id="price-usd">— USD/kg</span>
         </div>
       </div>
     </div>
@@ -228,7 +225,7 @@
      ============================================================ -->
 <div class="pdf-container" id="pdf-container">
 
-  <!-- PÁGINA 1: INTERNA (costos) — imprime primero en PDF Costos -->
+  <!-- PÁGINA 1: INTERNA (costos) -->
   <div class="pdf-page pdf-internal-page" id="pdf-internal-page">
     <div class="pdf-internal-title">
       <span>Detalle de costos — <span id="pdf-int-quote-number"></span><span id="pdf-int-alias" class="pdf-int-alias"></span></span>
@@ -241,9 +238,10 @@
           <th>Concepto</th>
           <th>Fuente</th>
           <th class="num">Valor original</th>
-          <th class="num">Fijo/emb.</th>
+          <th class="num">Fijo/ent.</th>
           <th class="num">Fijo/coti.</th>
           <th class="num">$/kg</th>
+          <th class="num">ARS/kg</th>
         </tr>
       </thead>
       <tbody id="pdf-cost-tbody"></tbody>
@@ -263,26 +261,24 @@
       <div class="sum-cell">
         <div class="sum-label">Precio final</div>
         <div class="sum-val" id="pdf-sum-price"></div>
-        <div class="sum-sub" id="pdf-sum-price-lb"></div>
+        <div class="sum-sub" id="pdf-sum-price-usd"></div>
       </div>
     </div>
     <div class="pdf-rate-note" id="pdf-rate-note"></div>
     <div class="pdf-meta-footer" id="pdf-meta-footer"></div>
   </div>
 
-  <!-- PÁGINA 2: CLIENTE — sola en PDF Cliente, segunda en PDF Costos -->
+  <!-- PÁGINA 2: CLIENTE (español, ARS) -->
   <div class="pdf-page pdf-client-page" id="pdf-client-page">
 
-    <!-- Inscripción visible solo en PDF Costos (modo internal) -->
     <div class="pdf-copy-label">COPIA ENVIADA AL CLIENTE</div>
 
-    <!-- Header: logos sobre la línea -->
+    <!-- Header -->
     <div class="pdf-header">
       <img id="pdf-logo" src="img/logo-manila.png" alt="Manila" class="pdf-brand-logo">
-      <img id="pdf-manila-logo-small" src="img/logo-manila.png" alt="Manila S.A." class="pdf-manila-small">
     </div>
 
-    <!-- Barra de datos debajo de la línea -->
+    <!-- Barra de datos -->
     <div class="pdf-quote-bar">
       <div class="pdf-quote-number" id="pdf-quote-number">—</div>
       <div class="pdf-quote-meta">
@@ -291,81 +287,81 @@
       </div>
     </div>
 
-    <!-- Foto del producto (siempre visible, fallback de color) -->
+    <!-- Foto del producto -->
     <div class="pdf-photo-wrap" id="pdf-photo-wrap">
       <img id="pdf-product-img" src="" alt="" class="pdf-product-photo">
     </div>
 
-    <!-- Nombre + specs del producto -->
+    <!-- Nombre + specs -->
     <div class="pdf-product-block">
       <div class="pdf-product-name" id="pdf-product-name"></div>
       <div class="pdf-product-spec" id="pdf-product-spec"></div>
+      <div class="pdf-product-details" id="pdf-product-details" style="display:none"></div>
     </div>
 
-    <!-- Info grid: todos los datos del envío -->
-    <div class="pdf-section-label">Shipment Details</div>
+    <!-- Info grid -->
+    <div class="pdf-section-label">Datos del pedido</div>
     <div class="pdf-info-grid" id="pdf-info-grid">
       <div class="pdf-info-cell">
-        <div class="cell-label">To</div>
+        <div class="cell-label">Cliente</div>
         <div class="cell-val" id="pdf-client-val"></div>
       </div>
       <div class="pdf-info-cell">
-        <div class="cell-label">Destination</div>
-        <div class="cell-val" id="pdf-dest-val"></div>
+        <div class="cell-label">Ciudad</div>
+        <div class="cell-val" id="pdf-city-val"></div>
       </div>
       <div class="pdf-info-cell">
-        <div class="cell-label">From</div>
-        <div class="cell-val">Manila S.A. — Bariloche, Argentina</div>
+        <div class="cell-label">Entrega</div>
+        <div class="cell-val" id="pdf-delivery-val"></div>
       </div>
       <div class="pdf-info-cell">
-        <div class="cell-label" id="pdf-origin-label">Port of Origin</div>
-        <div class="cell-val" id="pdf-origin-val"></div>
-      </div>
-      <div class="pdf-info-cell">
-        <div class="cell-label">Transport</div>
+        <div class="cell-label">Transporte</div>
         <div class="cell-val" id="pdf-transport-val"></div>
       </div>
       <div class="pdf-info-cell">
-        <div class="cell-label">Volume</div>
+        <div class="cell-label">Volumen</div>
         <div class="cell-val" id="pdf-volume-val"></div>
       </div>
       <div class="pdf-info-cell">
-        <div class="cell-label">Lead Time</div>
+        <div class="cell-label">Plazo</div>
         <div class="cell-val" id="pdf-leadtime-val"></div>
       </div>
       <div class="pdf-info-cell">
-        <div class="cell-label">Valid Until</div>
+        <div class="cell-label">Válida hasta</div>
         <div class="cell-val" id="pdf-validuntil-val"></div>
+      </div>
+      <div class="pdf-info-cell">
+        <div class="cell-label">Origen</div>
+        <div class="cell-val">Manila S.A. — Bariloche, Patagonia</div>
       </div>
     </div>
 
-    <!-- Certificaciones (solo las seleccionadas) -->
-    <div class="pdf-certs" id="pdf-certs"></div>
+    <!-- Condiciones de pago (prominente) -->
+    <div class="pdf-payment-block" id="pdf-payment-block">
+      <div class="pdf-payment-label">Condiciones de pago</div>
+      <div class="pdf-payment-value" id="pdf-payment-val">—</div>
+    </div>
 
-    <!-- Comentarios para el cliente -->
+    <!-- Comentarios -->
     <div class="pdf-comments" id="pdf-comments" style="display:none">
-      <div class="pdf-comments-label">Notes & Conditions</div>
+      <div class="pdf-comments-label">Notas y condiciones</div>
       <div class="pdf-comments-text" id="pdf-comments-text"></div>
     </div>
 
-    <!-- Precio al final: kg y lb al mismo nivel -->
-    <div class="pdf-price-block" id="pdf-price-block">
-      <div class="pdf-incoterm-label" id="pdf-incoterm-label"></div>
+    <!-- Precio: ARS/kg -->
+    <div class="pdf-price-block local-price" id="pdf-price-block">
+      <div class="pdf-incoterm-label" id="pdf-delivery-label"></div>
       <div class="pdf-prices-row">
         <div class="pdf-price-unit">
           <span class="pdf-price-val" id="pdf-price-main">—</span>
-          <span class="pdf-price-unit-label">USD / kg</span>
-        </div>
-        <div class="pdf-price-divider">|</div>
-        <div class="pdf-price-unit">
-          <span class="pdf-price-val" id="pdf-price-lb-val">—</span>
-          <span class="pdf-price-unit-label">USD / lb</span>
+          <span class="pdf-price-unit-label">ARS / kg</span>
         </div>
       </div>
+      <div class="pdf-iva-notice">Precios no incluyen IVA</div>
     </div>
 
     <!-- Footer -->
-    <div class="pdf-footer">
+    <div class="pdf-footer" id="pdf-footer">
       <span>Manila S.A. — Bariloche, Río Negro, Patagonia Argentina</span>
       <span>info@manilapatagonia.com · www.manilapatagonia.com</span>
     </div>
@@ -373,6 +369,6 @@
 
 </div>
 
-<script type="module" src="js/quote.js?v=28"></script>
+<script type="module" src="js/quote-local.js?v=2"></script>
 </body>
 </html>

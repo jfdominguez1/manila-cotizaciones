@@ -86,6 +86,56 @@ export const COST_UNITS = [
   { id: 'pct_price', label: '% precio', needs_unit_kg: false },
 ];
 
+// ============================================================
+// MERCADO LOCAL — Constantes
+// ============================================================
+
+export const DELIVERY_TERMS = [
+  { id: 'retiro_planta',     name: 'Retiro en planta',           desc: 'El cliente retira en nuestra planta de Bariloche' },
+  { id: 'puesto_bhc',        name: 'Puesto en Bariloche',        desc: 'Entrega en Bariloche ciudad' },
+  { id: 'puesto_nqn',        name: 'Puesto en Neuquén',          desc: 'Entrega en ciudad de Neuquén' },
+  { id: 'puesto_caba',       name: 'Puesto en CABA',             desc: 'Entrega en Capital Federal / GBA' },
+  { id: 'puesto_interior',   name: 'Puesto en interior',         desc: 'Entrega en otra ciudad del interior del país' },
+  { id: 'entrega_deposito',  name: 'Entrega en depósito',        desc: 'Entrega en depósito del cliente o distribuidor' },
+];
+
+// Capas requeridas según delivery term (como INCOTERM_LAYERS para export)
+export const DELIVERY_TERM_LAYERS = {
+  retiro_planta:    { required: [],               hint: 'El cliente retira en planta — sin flete a cargo del vendedor' },
+  puesto_bhc:       { required: ['distribution'], hint: 'Incluye distribución hasta Bariloche ciudad' },
+  puesto_nqn:       { required: ['distribution'], hint: 'Incluye flete refrigerado hasta Neuquén' },
+  puesto_caba:      { required: ['distribution'], hint: 'Incluye flete refrigerado hasta CABA' },
+  puesto_interior:  { required: ['distribution'], hint: 'Incluye flete hasta la ciudad acordada' },
+  entrega_deposito: { required: ['distribution'], hint: 'Incluye entrega en depósito del cliente' },
+};
+
+// Capas de costo para mercado local (5 capas — distribution reemplaza transport+export)
+export const LOCAL_COST_LAYERS = [
+  { id: 'raw_material',  name: 'Materia Prima',          applies_yield: true },
+  { id: 'processing',    name: 'Proceso en Planta',      applies_yield: false },
+  { id: 'packaging',     name: 'Materiales y Embalaje',  applies_yield: false },
+  { id: 'distribution',  name: 'Distribución',           applies_yield: false },
+  { id: 'other',         name: 'Otros',                  applies_yield: false },
+];
+
+export const PAYMENT_TERMS = [
+  { id: 'contado',       name: 'Contado' },
+  { id: '7_dias',        name: '7 días' },
+  { id: '15_dias',       name: '15 días' },
+  { id: '30_dias',       name: '30 días' },
+  { id: '45_dias',       name: '45 días' },
+  { id: '60_dias',       name: '60 días' },
+  { id: 'cheque',        name: 'Cheque diferido' },
+  { id: 'custom',        name: 'Personalizado' },
+];
+
+export const LOCAL_TRANSPORT_TYPES = [
+  'Camión refrigerado',
+  'Camión seco',
+  'Utilitario',
+  'Retiro en planta',
+];
+
 export const CONTACT = {
   company: 'Manila S.A.',
   address: 'Bariloche, Río Negro, Patagonia Argentina',
