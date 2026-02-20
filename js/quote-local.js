@@ -583,6 +583,11 @@ function getPlantExitCost() {
     .reduce((sum, l) => sum + l.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0), 0);
 }
 
+// Alias para el motor ARS
+function getPlantExitCostArs() {
+  return getPlantExitCost();  // cost_per_kg_calc ahora es ARS
+}
+
 function computeEffectiveYield() {
   const processingLayer = layers.find(l => l.id === 'processing');
   if (!processingLayer) return 1;
@@ -594,7 +599,7 @@ function computeEffectiveYield() {
 }
 
 // ============================================================
-// CÁLCULO PRINCIPAL
+// CÁLCULO PRINCIPAL — todo en ARS
 // ============================================================
 function recalculate() {
   const volumeKg = parseNum(document.getElementById('volume-kg').value) || 0;
@@ -604,6 +609,7 @@ function recalculate() {
   const effectiveYield = computeEffectiveYield();
   let marginPct = parseNum(document.getElementById('margin-pct').value) / 100 || 0;
   const usdArsRate = parseNum(document.getElementById('usd-ars-rate').value) || 0;
+  const fmtArs = v => `$${v.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   // Yield display
   const yieldDisplay = document.getElementById('processing-yield-display');
@@ -620,10 +626,11 @@ function recalculate() {
     mpBadge.textContent = `÷ ${(effectiveYield * 100).toFixed(1)}% rdto`;
   }
 
-  // Rate warning
+  // Rate warning — solo si NO hay TC y hay ítems en USD legacy
   const rateInput = document.getElementById('usd-ars-rate');
   const rateLabel = rateInput?.closest('.form-row')?.querySelector('label');
-  if (hasArsItems() && !usdArsRate) {
+  const hasUsdItems = layers.some(l => l.items.some(i => i.currency === 'USD'));
+  if (hasUsdItems && !usdArsRate) {
     rateInput?.classList.add('rate-warning');
     if (rateLabel) rateLabel.classList.add('rate-warning-label');
   } else {
@@ -631,26 +638,25 @@ function recalculate() {
     if (rateLabel) rateLabel.classList.remove('rate-warning-label');
   }
 
-  let totalCostPerKg = 0;  // en USD
+  let totalCostPerKgArs = 0;  // todo en ARS
 
   layers.forEach((layer, idx) => {
     let layerTotal = 0;
 
     layer.items.forEach((item, itemIdx) => {
       const rawPerKg = calcItemCostPerKgRaw(item, volumeKg, numShipments);
-      const costPerKg = item.currency === 'ARS'
-        ? (usdArsRate > 0 ? rawPerKg / usdArsRate : 0)
+      // Convertir a ARS: items ARS se quedan, items USD se multiplican por TC
+      const costPerKgArs = item.currency === 'USD'
+        ? (usdArsRate > 0 ? rawPerKg * usdArsRate : 0)
         : rawPerKg;
-      const adjusted = layer.applies_yield && effectiveYield > 0 ? costPerKg / effectiveYield : costPerKg;
-      const rawAdjARS = layer.applies_yield && effectiveYield > 0 ? rawPerKg / effectiveYield : rawPerKg;
-      item.cost_per_kg_calc = adjusted;
+      const adjusted = layer.applies_yield && effectiveYield > 0 ? costPerKgArs / effectiveYield : costPerKgArs;
+      item.cost_per_kg_calc = adjusted;  // ahora en ARS
       layerTotal += adjusted;
 
       const resultEl = document.querySelector(`[data-result="${idx}-${itemIdx}"]`);
       if (resultEl) {
-        const arsVal = item.currency === 'ARS' ? rawAdjARS : (usdArsRate > 0 ? adjusted * usdArsRate : 0);
-        if (arsVal > 0) {
-          resultEl.textContent = `$${arsVal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/kg`;
+        if (adjusted > 0) {
+          resultEl.textContent = `${fmtArs(adjusted)}/kg`;
           resultEl.classList.remove('na');
         } else {
           resultEl.textContent = '$0,00/kg';
@@ -659,34 +665,29 @@ function recalculate() {
       }
     });
 
-    totalCostPerKg += layerTotal;
+    totalCostPerKgArs += layerTotal;
     const totalEl = document.getElementById(`layer-total-${idx}`);
-    if (totalEl) {
-      const layerArs = usdArsRate > 0 ? layerTotal * usdArsRate : 0;
-      totalEl.textContent = `$${layerArs.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/kg`;
-    }
+    if (totalEl) totalEl.textContent = `${fmtArs(layerTotal)}/kg`;
   });
 
-  // Lock price mode
+  // Lock price mode — todo en ARS directo
   if (lockMode === 'price') {
     const tp = parseNum(document.getElementById('target-price').value);
-    // target-price es en ARS/kg → convertir a USD
-    if (tp > 0 && usdArsRate > 0) {
-      const tpUsd = tp / usdArsRate;
+    if (tp > 0) {
       const cfl = volumeKg > 0
         ? (commission.fixed_per_shipment * numShipments + commission.fixed_per_quote) / volumeKg
         : 0;
       let nm;
       if (commission.base === 'cost') {
-        const base = totalCostPerKg * (1 + commission.pct / 100) + cfl;
-        nm = base > 0 ? (tpUsd / base - 1) * 100 : 0;
+        const base = totalCostPerKgArs * (1 + commission.pct / 100) + cfl;
+        nm = base > 0 ? (tp / base - 1) * 100 : 0;
       } else if (commission.base === 'plant_exit') {
-        const pe = getPlantExitCost();
-        const base = totalCostPerKg + pe * (commission.pct / 100);
-        nm = base > 0 ? ((tpUsd - cfl) / base - 1) * 100 : 0;
+        const pe = getPlantExitCostArs();
+        const base = totalCostPerKgArs + pe * (commission.pct / 100);
+        nm = base > 0 ? ((tp - cfl) / base - 1) * 100 : 0;
       } else {
-        const netP = tpUsd * (1 - commission.pct / 100) - cfl;
-        nm = totalCostPerKg > 0 ? (netP / totalCostPerKg - 1) * 100 : 0;
+        const netP = tp * (1 - commission.pct / 100) - cfl;
+        nm = totalCostPerKgArs > 0 ? (netP / totalCostPerKgArs - 1) * 100 : 0;
       }
       if (isFinite(nm) && nm >= -99) {
         marginPct = Math.max(0, nm) / 100;
@@ -696,39 +697,37 @@ function recalculate() {
     }
   }
 
-  // Comisión
+  // Comisión — en ARS
   const commFixedPerKg = volumeKg > 0
     ? (commission.fixed_per_shipment * numShipments + commission.fixed_per_quote) / volumeKg
     : 0;
 
-  let commPerKg = 0;
-  let pricePerKgUsd = 0;
+  let commPerKgArs = 0;
+  let pricePerKgArs = 0;
 
   if (commission.base === 'cost') {
-    commPerKg = totalCostPerKg * (commission.pct / 100) + commFixedPerKg;
-    pricePerKgUsd = (totalCostPerKg + commPerKg) * (1 + marginPct);
+    commPerKgArs = totalCostPerKgArs * (commission.pct / 100) + commFixedPerKg;
+    pricePerKgArs = (totalCostPerKgArs + commPerKgArs) * (1 + marginPct);
   } else if (commission.base === 'plant_exit') {
-    const plantExitPrice = getPlantExitCost() * (1 + marginPct);
-    commPerKg = plantExitPrice * (commission.pct / 100) + commFixedPerKg;
-    pricePerKgUsd = totalCostPerKg * (1 + marginPct) + commPerKg;
+    const plantExitPrice = getPlantExitCostArs() * (1 + marginPct);
+    commPerKgArs = plantExitPrice * (commission.pct / 100) + commFixedPerKg;
+    pricePerKgArs = totalCostPerKgArs * (1 + marginPct) + commPerKgArs;
   } else {
-    const base = totalCostPerKg * (1 + marginPct) + commFixedPerKg;
-    pricePerKgUsd = base / (1 - commission.pct / 100);
-    commPerKg = pricePerKgUsd * (commission.pct / 100) + commFixedPerKg;
+    const base = totalCostPerKgArs * (1 + marginPct) + commFixedPerKg;
+    pricePerKgArs = base / (1 - commission.pct / 100);
+    commPerKgArs = pricePerKgArs * (commission.pct / 100) + commFixedPerKg;
   }
 
-  // Precio en ARS
-  const pricePerKgArs = usdArsRate > 0 ? pricePerKgUsd * usdArsRate : 0;
+  // USD solo como referencia
+  const pricePerKgUsd = usdArsRate > 0 ? pricePerKgArs / usdArsRate : 0;
+  const totalCostPerKgUsd = usdArsRate > 0 ? totalCostPerKgArs / usdArsRate : 0;
 
   // Commission total
   const commTotalEl = document.getElementById('comm-total');
-  if (commTotalEl) {
-    const commArs = usdArsRate > 0 ? commPerKg * usdArsRate : 0;
-    commTotalEl.textContent = `$${commArs.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/kg`;
-  }
+  if (commTotalEl) commTotalEl.textContent = `${fmtArs(commPerKgArs)}/kg`;
 
   // Summary
-  renderSummary(layers, totalCostPerKg, commPerKg, marginPct, pricePerKgUsd, pricePerKgArs, volumeKg, usdArsRate);
+  renderSummary(layers, totalCostPerKgArs, commPerKgArs, marginPct, pricePerKgArs, volumeKg, usdArsRate);
 
   // Price highlight — en ARS
   if (pricePerKgArs > 0) {
@@ -755,9 +754,9 @@ function recalculate() {
   renderDeliveryCoverage();
 
   // Warnings
-  renderWarnings(effectiveYield, totalCostPerKg, marginPct, usdArsRate);
+  renderWarnings(effectiveYield, totalCostPerKgArs, marginPct, usdArsRate);
 
-  return { totalCostPerKg, commPerKg, pricePerKgUsd, pricePerKgArs, marginPct };
+  return { totalCostPerKg: totalCostPerKgUsd, totalCostPerKgArs, commPerKg: commPerKgArs, pricePerKgUsd, pricePerKgArs, marginPct };
 }
 
 function onTargetPriceChange() {
@@ -804,8 +803,9 @@ function renderWarnings(effectiveYield, totalCostPerKg, marginPct, usdArsRate) {
   if (totalCostPerKg > 0 && marginPct <= 0) {
     warnings.push('Margen 0% o negativo.');
   }
-  if (!usdArsRate) {
-    warnings.push('Sin tipo de cambio — no se puede calcular precio en ARS.');
+  const hasUsdItems = layers.some(l => l.items.some(i => i.currency === 'USD'));
+  if (hasUsdItems && !usdArsRate) {
+    warnings.push('Hay ítems en USD y no se definió tipo de cambio.');
   }
 
   if (warnings.length === 0) {
@@ -877,10 +877,9 @@ function renderDeliveryCoverage() {
   container.innerHTML = html;
 }
 
-function renderSummary(layers, totalCost, commPerKg, marginPct, pricePerKgUsd, pricePerKgArs, volumeKg, usdArsRate) {
+function renderSummary(layers, totalCostArs, commPerKgArs, marginPct, pricePerKgArs, volumeKg, usdArsRate) {
   const container = document.getElementById('cost-summary');
-  const tc = usdArsRate || 0;
-  const fmtArs = v => `$${(v * tc).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fmtArs = v => `$${v.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   let html = '';
 
   const effectiveYield = computeEffectiveYield();
@@ -917,17 +916,17 @@ function renderSummary(layers, totalCost, commPerKg, marginPct, pricePerKgUsd, p
 
   html += `<div class="cost-summary-row separator">
     <span class="label">Subtotal costos</span>
-    <span class="value">${fmtArs(totalCost)}/kg</span>
+    <span class="value">${fmtArs(totalCostArs)}/kg</span>
   </div>`;
 
-  if (commPerKg > 0) {
+  if (commPerKgArs > 0) {
     html += `<div class="cost-summary-row">
       <span class="label">Comisión</span>
-      <span class="value">${fmtArs(commPerKg)}/kg</span>
+      <span class="value">${fmtArs(commPerKgArs)}/kg</span>
     </div>`;
   }
 
-  const marginAmount = pricePerKgUsd - totalCost - commPerKg;
+  const marginAmount = pricePerKgArs - totalCostArs - commPerKgArs;
   html += `<div class="cost-summary-row">
     <span class="label">Margen (${(marginPct * 100).toFixed(1)}%)</span>
     <span class="value">${fmtArs(marginAmount)}/kg</span>
@@ -1003,7 +1002,8 @@ function buildQuoteObject(status) {
     cost_layers: costLayersSnapshot,
     commission: { ...commission },
 
-    total_cost_per_kg: calc?.totalCostPerKg ?? 0,
+    total_cost_per_kg: calc?.totalCostPerKg ?? 0,  // USD ref
+    total_cost_per_kg_ars: calc?.totalCostPerKgArs ?? 0,
     margin_pct: parseNum(document.getElementById('margin-pct').value) || 0,
     price_per_kg_usd: calc?.pricePerKgUsd ?? 0,
     price_per_kg_ars: calc?.pricePerKgArs ?? 0
@@ -1158,7 +1158,7 @@ async function printQuote(mode) {
   document.getElementById('pdf-int-quote-number').textContent = currentQuoteNumber;
   const calc = recalculate();
   buildInternalTable(calc);
-  const costArsTotal = usdArsRate > 0 ? (calc?.totalCostPerKg ?? 0) * usdArsRate : 0;
+  const costArsTotal = calc?.totalCostPerKgArs ?? 0;
   document.getElementById('pdf-sum-cost').textContent = `$${costArsTotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   document.getElementById('pdf-sum-margin').textContent = `${document.getElementById('margin-pct').value}%`;
   document.getElementById('pdf-sum-price').textContent = `$${Math.round(priceArs).toLocaleString('es-AR')}`;
@@ -1241,8 +1241,7 @@ function buildInternalTable(calc = null) {
     layer.items.forEach(item => {
       const tr = document.createElement('tr');
       const unitLabel = COST_UNITS.find(u => u.id === item.variable_unit)?.label ?? item.variable_unit;
-      const costUsd = (item.cost_per_kg_calc ?? 0);
-      const costArs = usdArsRate > 0 ? costUsd * usdArsRate : 0;
+      const costArs = (item.cost_per_kg_calc ?? 0);  // ya en ARS
       tr.innerHTML = `
         <td>${item.name || '—'}</td>
         <td>${item.source === 'table' ? 'Tabla' : 'Manual'}</td>
@@ -1251,14 +1250,13 @@ function buildInternalTable(calc = null) {
         <td class="num">${costArs > 0 ? fmtArs(costArs) + '/kg' : '—'}</td>
       `;
       tbody.appendChild(tr);
-      layerTotal += costUsd;
+      layerTotal += costArs;
     });
 
     if (layer.items.length > 1) {
       const subRow = document.createElement('tr');
       subRow.className = 'subtotal';
-      const subArs = usdArsRate > 0 ? layerTotal * usdArsRate : 0;
-      subRow.innerHTML = `<td colspan="4">Subtotal ${layer.name}</td><td class="num">${subArs > 0 ? fmtArs(subArs) + '/kg' : '—'}</td>`;
+      subRow.innerHTML = `<td colspan="4">Subtotal ${layer.name}</td><td class="num">${fmtArs(layerTotal)}/kg</td>`;
       tbody.appendChild(subRow);
     }
   });
@@ -1266,29 +1264,27 @@ function buildInternalTable(calc = null) {
   // Breakdown
   const breakdownEl = document.getElementById('pdf-cost-breakdown');
   if (breakdownEl && calc) {
-    const { totalCostPerKg, commPerKg, pricePerKgUsd, pricePerKgArs, marginPct } = calc;
-    const tc = parseNum(document.getElementById('usd-ars-rate').value) || 0;
-    const fmtBd = v => tc > 0 ? fmtArs(v * tc) : '—';
+    const { totalCostPerKgArs, commPerKg, pricePerKgArs, marginPct } = calc;
 
     let html = '<div class="pdf-cost-breakdown-title">Resumen por capa</div>';
 
     layers.forEach(l => {
       if (l.items.length === 0) return;
       const layerTotal = l.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0);
-      html += `<div class="pdf-breakdown-row"><span class="bd-label">${l.name}</span><span class="bd-val">${fmtBd(layerTotal)}/kg</span></div>`;
+      html += `<div class="pdf-breakdown-row"><span class="bd-label">${l.name}</span><span class="bd-val">${fmtArs(layerTotal)}/kg</span></div>`;
     });
 
     if (commPerKg > 0) {
-      html += `<div class="pdf-breakdown-row"><span class="bd-label">Comisión (${commission.pct}%)</span><span class="bd-val">${fmtBd(commPerKg)}/kg</span></div>`;
+      html += `<div class="pdf-breakdown-row"><span class="bd-label">Comisión (${commission.pct}%)</span><span class="bd-val">${fmtArs(commPerKg)}/kg</span></div>`;
     }
 
-    const marginAmount = pricePerKgUsd - totalCostPerKg - commPerKg;
-    html += `<div class="pdf-breakdown-row separator"><span class="bd-label">Subtotal costos</span><span class="bd-val">${fmtBd(totalCostPerKg)}/kg</span></div>`;
-    html += `<div class="pdf-breakdown-row"><span class="bd-label">Margen (${(marginPct * 100).toFixed(1)}%)</span><span class="bd-val">+${fmtBd(marginAmount)}/kg</span></div>`;
+    const marginAmount = pricePerKgArs - totalCostPerKgArs - commPerKg;
+    html += `<div class="pdf-breakdown-row separator"><span class="bd-label">Subtotal costos</span><span class="bd-val">${fmtArs(totalCostPerKgArs)}/kg</span></div>`;
+    html += `<div class="pdf-breakdown-row"><span class="bd-label">Margen (${(marginPct * 100).toFixed(1)}%)</span><span class="bd-val">+${fmtArs(marginAmount)}/kg</span></div>`;
     html += `<div class="pdf-breakdown-row total"><span class="bd-label">Precio final</span><span class="bd-val">$${Math.round(pricePerKgArs).toLocaleString('es-AR')}/kg</span></div>`;
 
-    if (tc > 0) {
-      html += `<div class="pdf-breakdown-row" style="margin-top:2mm;border-top:1px solid #e5e3e0;padding-top:2mm;color:#7c5a00;font-size:7pt"><span class="bd-label">💱 Tipo de cambio</span><span class="bd-val">$${tc.toLocaleString('es-AR')}/USD</span></div>`;
+    if (usdArsRate > 0) {
+      html += `<div class="pdf-breakdown-row" style="margin-top:2mm;border-top:1px solid #e5e3e0;padding-top:2mm;color:#7c5a00;font-size:7pt"><span class="bd-label">💱 Tipo de cambio</span><span class="bd-val">$${usdArsRate.toLocaleString('es-AR')}/USD</span></div>`;
     }
 
     breakdownEl.innerHTML = html;
