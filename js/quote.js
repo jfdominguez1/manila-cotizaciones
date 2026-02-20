@@ -1,5 +1,8 @@
 import { requireAuth, logout, getCurrentUser } from './auth.js';
-import { db } from './firebase.js';
+import { db, storage } from './firebase.js';
+import {
+  ref, uploadBytes, getDownloadURL
+} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js';
 import { BRANDS, CERTIFICATIONS, INCOTERMS, COST_LAYERS, COST_UNITS, CONTACT, INCOTERM_LAYERS, MANDATORY_ITEMS, buildMandatoryItems, parseNum } from './config.js';
 import {
   collection, doc, getDoc, getDocs, setDoc, updateDoc, runTransaction
@@ -312,24 +315,79 @@ function renderQuotePhotoGallery(product) {
   // Juntar foto principal + available_photos, deduplicar
   const raw = [product?.photo, ...(product?.available_photos ?? [])].filter(Boolean);
   const photos = [...new Set(raw)];
-  if (!photos.length) { gallery.style.display = 'none'; return; }
 
   gallery.style.display = '';
   gallery.innerHTML = '<span class="qpg-label">Foto para PDF:</span>';
+
   photos.forEach(src => {
     const item = document.createElement('div');
-    item.className = 'qpg-item' + (src === (selectedQuotePhoto || product.photo) ? ' selected' : '');
+    item.className = 'qpg-item' + (src === (selectedQuotePhoto || product?.photo) ? ' selected' : '');
     item.innerHTML = `<img src="${src}" alt="">`;
     item.addEventListener('click', () => {
       selectedQuotePhoto = src;
       const thumbWrap = document.getElementById('product-thumb-wrap');
-      thumbWrap.innerHTML = `<img class="product-thumb" src="${src}" alt="${product.name}">`;
+      thumbWrap.innerHTML = `<img class="product-thumb" src="${src}" alt="${product?.name ?? ''}">`;
       thumbWrap.className = '';
       gallery.querySelectorAll('.qpg-item').forEach(i => i.classList.remove('selected'));
       item.classList.add('selected');
     });
     gallery.appendChild(item);
   });
+
+  // Botón subir foto
+  const uploadBtn = document.createElement('label');
+  uploadBtn.className = 'qpg-item qpg-upload';
+  uploadBtn.innerHTML = '<span>＋</span>';
+  uploadBtn.title = 'Subir otra foto';
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.style.display = 'none';
+  input.addEventListener('change', async () => {
+    if (!input.files[0]) return;
+    uploadBtn.classList.add('uploading');
+    uploadBtn.innerHTML = '<span>…</span>';
+    try {
+      const photoUrl = await uploadQuotePhoto(input.files[0], currentProduct?.id ?? 'quote');
+      selectedQuotePhoto = photoUrl;
+      const thumbWrap = document.getElementById('product-thumb-wrap');
+      thumbWrap.innerHTML = `<img class="product-thumb" src="${photoUrl}" alt="">`;
+      thumbWrap.className = '';
+      renderQuotePhotoGallery(product);
+    } catch (e) {
+      alert('Error al subir foto: ' + e.message);
+      uploadBtn.classList.remove('uploading');
+      uploadBtn.innerHTML = '<span>＋</span>';
+    }
+  });
+  uploadBtn.appendChild(input);
+  gallery.appendChild(uploadBtn);
+}
+
+async function uploadQuotePhoto(file, productId) {
+  const img = new Image();
+  const url = URL.createObjectURL(file);
+  const blob = await new Promise((resolve, reject) => {
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      const maxDim = 800;
+      if (width > maxDim || height > maxDim) {
+        if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+        else { width = Math.round(width * maxDim / height); height = maxDim; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('Error procesando imagen')), 'image/jpeg', 0.82);
+    };
+    img.onerror = () => reject(new Error('No se pudo cargar la imagen'));
+    img.src = url;
+  });
+  const fileName = `quotes/${productId}/${Date.now()}.jpg`;
+  const storageRef = ref(storage, fileName);
+  await uploadBytes(storageRef, blob);
+  return getDownloadURL(storageRef);
 }
 
 function renderCertPicker(product) {

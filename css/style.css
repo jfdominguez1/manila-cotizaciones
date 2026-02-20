@@ -2341,6 +2341,24 @@ label.rate-warning-label {
   object-fit: cover;
   display: block;
 }
+.qpg-upload {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gray-100);
+  border: 2px dashed var(--gray-300);
+  opacity: 1;
+  font-size: 24px;
+  color: var(--gray-400);
+}
+.qpg-upload:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.qpg-upload.uploading {
+  opacity: 0.5;
+  pointer-events: none;
+}
 
 /* ============================================================
    COST ADMIN TABLE (grouped)
