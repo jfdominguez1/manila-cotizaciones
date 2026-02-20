@@ -292,6 +292,18 @@ function onProductChange() {
   // Renderizar cert picker
   renderCertPicker(p);
 
+  // Auto-llenar rendimiento estándar del producto en el ítem "Proceso"
+  if (p?.default_yield_pct) {
+    const processingLayer = layers.find(l => l.id === 'processing');
+    if (processingLayer) {
+      const procesoItem = processingLayer.items.find(i => i.mandatory_id === 'proceso');
+      if (procesoItem && !procesoItem.yield_pct) {
+        procesoItem.yield_pct = p.default_yield_pct;
+        renderLayerItems(layers.indexOf(processingLayer));
+      }
+    }
+  }
+
   recalculate();
 }
 
