@@ -1,6 +1,6 @@
 import { requireAuth, logout, getCurrentUser } from './auth.js';
 import { db } from './firebase.js';
-import { BRANDS, CERTIFICATIONS, INCOTERMS, COST_LAYERS, COST_UNITS, CONTACT, INCOTERM_LAYERS, parseNum } from './config.js';
+import { BRANDS, CERTIFICATIONS, INCOTERMS, COST_LAYERS, COST_UNITS, CONTACT, INCOTERM_LAYERS, MANDATORY_ITEMS, buildMandatoryItems, parseNum } from './config.js';
 import {
   collection, doc, getDoc, getDocs, setDoc, updateDoc, runTransaction
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
@@ -17,11 +17,15 @@ let currentQuoteId = null;   // si estamos editando un draft
 let currentQuoteNumber = null;
 let isDraft = false;
 
-// Capas de costo: array paralelo a COST_LAYERS
-let layers = COST_LAYERS.map(l => ({
-  ...l,
-  items: []
-}));
+// Capas de costo: array paralelo a COST_LAYERS — pre-poblado con obligatorios
+function initLayersWithMandatory() {
+  const mandatory = buildMandatoryItems('export');
+  return COST_LAYERS.map(l => ({
+    ...l,
+    items: mandatory.filter(mi => mi.layer === l.id).map(mi => ({ ...mi }))
+  }));
+}
+let layers = initLayersWithMandatory();
 
 // Comisión
 let commission = {
@@ -188,6 +192,7 @@ function populateFromData(data, isCopy = false) {
         items: saved ? saved.items.map(item => ({ ...item })) : []
       };
     });
+    ensureMandatoryItems();
     renderLayers();
   }
 
@@ -240,6 +245,9 @@ function bindPanelEvents() {
   });
   // Estado inicial visual del toggle
   setLockMode('margin');
+
+  // Checklist: campos que no disparan recalculate
+  document.getElementById('client-name').addEventListener('input', () => renderChecklist());
 
   document.getElementById('btn-confirm').addEventListener('click', confirmQuote);
   document.getElementById('btn-save-draft').addEventListener('click', saveDraft);
@@ -381,6 +389,7 @@ function createItemRow(layerIdx, itemIdx) {
   const isProcessing = layer.id === 'processing';
   const row = document.createElement('div');
   row.className = 'cost-item';
+  if (item.mandatory) row.classList.add('mandatory-item');
   row.dataset.item = itemIdx;
 
   const unitOptions = COST_UNITS.map(u =>
@@ -390,11 +399,12 @@ function createItemRow(layerIdx, itemIdx) {
   const needsUnitKg = COST_UNITS.find(u => u.id === item.variable_unit)?.needs_unit_kg ?? false;
   const isArs = item.currency === 'ARS';
   if (isArs) row.classList.add('ars-item');
+  const nameReadonly = item.mandatory ? 'readonly' : '';
 
   row.innerHTML = `
     <div class="cost-item-row1">
       <div class="item-name">
-        <input type="text" placeholder="Concepto..." value="${item.name ?? ''}" data-field="name">
+        <input type="text" placeholder="Concepto..." value="${item.name ?? ''}" data-field="name" ${nameReadonly}>
       </div>
       <div class="source-toggle">
         <button class="${item.source !== 'table' ? 'active' : ''}" data-src="manual">Manual</button>
@@ -404,7 +414,7 @@ function createItemRow(layerIdx, itemIdx) {
         <button class="${!isArs ? 'active' : ''}" data-currency="USD">USD</button>
         <button class="${isArs ? 'active ars-active' : ''}" data-currency="ARS">ARS $</button>
       </div>
-      <button class="btn-icon" title="Eliminar">✕</button>
+      ${item.mandatory ? '' : '<button class="btn-icon" title="Eliminar">✕</button>'}
     </div>
     <div class="cost-item-row2">
       <div class="item-field field-value">
@@ -480,12 +490,15 @@ function createItemRow(layerIdx, itemIdx) {
     });
   });
 
-  // Eliminar
-  row.querySelector('.btn-icon').addEventListener('click', () => {
-    layers[layerIdx].items.splice(itemIdx, 1);
-    renderLayerItems(layerIdx);
-    recalculate();
-  });
+  // Eliminar (solo para ítems no obligatorios)
+  const deleteBtn = row.querySelector('.btn-icon');
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', () => {
+      layers[layerIdx].items.splice(itemIdx, 1);
+      renderLayerItems(layerIdx);
+      recalculate();
+    });
+  }
 
   return row;
 }
@@ -807,6 +820,9 @@ function recalculate() {
 
   // Advertencias de incoherencia
   renderWarnings(effectiveYield, totalCostPerKg, marginPct);
+
+  // Checklist de completitud
+  renderChecklist();
 
   return { totalCostPerKg, commPerKg, pricePerKg, pricePerLb, marginPct };
 }
@@ -1478,6 +1494,69 @@ function buildInternalTable(calc = null) {
 
     breakdownEl.innerHTML = html;
   }
+}
+
+// ============================================================
+// MIGRACIÓN: ASEGURAR ÍTEMS OBLIGATORIOS
+// ============================================================
+function ensureMandatoryItems() {
+  const mandatoryDefs = buildMandatoryItems('export');
+  MANDATORY_ITEMS.forEach(mi => {
+    const layer = layers.find(l => l.id === mi.layer);
+    if (!layer) return;
+    let existing = layer.items.find(item => item.mandatory_id === mi.id);
+    if (!existing) {
+      existing = layer.items.find(item => item.name && item.name.toLowerCase() === mi.name.toLowerCase());
+    }
+    if (existing) {
+      existing.mandatory = true;
+      existing.mandatory_id = mi.id;
+    } else {
+      const template = mandatoryDefs.find(d => d.mandatory_id === mi.id);
+      if (template) layer.items.unshift({ ...template });
+    }
+  });
+}
+
+// ============================================================
+// CHECKLIST DE COMPLETITUD
+// ============================================================
+function renderChecklist() {
+  const panel = document.getElementById('checklist-panel');
+  if (!panel) return;
+
+  const checks = [];
+
+  // Campos generales
+  checks.push({ label: 'Cliente', ok: !!document.getElementById('client-name').value.trim() });
+  checks.push({ label: 'Producto', ok: !!document.getElementById('product-select').value });
+  checks.push({ label: 'Incoterm', ok: !!document.getElementById('incoterm-select').value });
+  checks.push({ label: 'Volumen', ok: (parseNum(document.getElementById('volume-kg').value) || 0) > 0 });
+
+  // Ítems obligatorios de costo
+  MANDATORY_ITEMS.forEach(mi => {
+    const layer = layers.find(l => l.id === mi.layer);
+    if (!layer) return;
+    const item = layer.items.find(i => i.mandatory_id === mi.id);
+    let ok = false;
+    if (item) {
+      ok = (item.variable_value > 0) || (item.fixed_per_shipment > 0) || (item.fixed_per_quote > 0);
+      if (mi.has_yield && ok) {
+        ok = ok && item.yield_pct > 0;
+      }
+    }
+    checks.push({ label: mi.name, ok });
+  });
+
+  const total = checks.length;
+  const done = checks.filter(c => c.ok).length;
+
+  let html = `<span class="checklist-counter">${done}/${total}</span>`;
+  checks.forEach(c => {
+    html += `<span class="checklist-item ${c.ok ? 'ok' : 'pending'}">${c.ok ? '✓' : '○'} ${c.label}</span>`;
+  });
+
+  panel.innerHTML = html;
 }
 
 // ============================================================

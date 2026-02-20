@@ -2,7 +2,8 @@ import { requireAuth, logout } from './auth.js';
 import { db } from './firebase.js';
 import {
   BRANDS, DELIVERY_TERMS, DELIVERY_TERM_LAYERS, LOCAL_COST_LAYERS,
-  COST_UNITS, CONTACT, PAYMENT_TERMS, LOCAL_TRANSPORT_TYPES, parseNum
+  COST_UNITS, CONTACT, PAYMENT_TERMS, LOCAL_TRANSPORT_TYPES,
+  MANDATORY_ITEMS, buildMandatoryItems, parseNum
 } from './config.js';
 import {
   collection, doc, getDoc, getDocs, setDoc, updateDoc, runTransaction
@@ -21,8 +22,15 @@ let isDraft = false;
 let selectedPaymentTerm = '';
 let customPayment = '';
 
-// Capas de costo: paralelo a LOCAL_COST_LAYERS
-let layers = LOCAL_COST_LAYERS.map(l => ({ ...l, items: [] }));
+// Capas de costo: paralelo a LOCAL_COST_LAYERS — pre-poblado con obligatorios
+function initLayersWithMandatory() {
+  const mandatory = buildMandatoryItems('local');
+  return LOCAL_COST_LAYERS.map(l => ({
+    ...l,
+    items: mandatory.filter(mi => mi.layer === l.id).map(mi => ({ ...mi }))
+  }));
+}
+let layers = initLayersWithMandatory();
 
 // Comisión
 let commission = { pct: 0, base: 'cost', fixed_per_shipment: 0, fixed_per_quote: 0 };
@@ -195,6 +203,7 @@ function populateFromData(data, isCopy = false) {
       const saved = data.cost_layers.find(sl => sl.layer_id === l.id);
       return { ...l, items: saved ? saved.items.map(item => ({ ...item })) : [] };
     });
+    ensureMandatoryItems();
     renderLayers();
   }
 
@@ -237,6 +246,7 @@ function populatePaymentTerms() {
       document.querySelectorAll('.payment-term-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       document.getElementById('custom-payment-wrap').style.display = pt.id === 'custom' ? '' : 'none';
+      renderChecklist();
     });
     container.appendChild(btn);
   });
@@ -268,6 +278,9 @@ function bindPanelEvents() {
       btn.classList.add('active');
     });
   });
+
+  // Checklist: campos que no disparan recalculate
+  document.getElementById('client-name').addEventListener('input', () => renderChecklist());
 
   document.getElementById('btn-confirm').addEventListener('click', confirmQuote);
   document.getElementById('btn-save-draft').addEventListener('click', saveDraft);
@@ -358,6 +371,7 @@ function createItemRow(layerIdx, itemIdx) {
   const isProcessing = layer.id === 'processing';
   const row = document.createElement('div');
   row.className = 'cost-item';
+  if (item.mandatory) row.classList.add('mandatory-item');
   row.dataset.item = itemIdx;
 
   const unitOptions = COST_UNITS.map(u =>
@@ -367,11 +381,12 @@ function createItemRow(layerIdx, itemIdx) {
   const needsUnitKg = COST_UNITS.find(u => u.id === item.variable_unit)?.needs_unit_kg ?? false;
   const isArs = item.currency === 'ARS';
   if (isArs) row.classList.add('ars-item');
+  const nameReadonly = item.mandatory ? 'readonly' : '';
 
   row.innerHTML = `
     <div class="cost-item-row1">
       <div class="item-name">
-        <input type="text" placeholder="Concepto..." value="${item.name ?? ''}" data-field="name">
+        <input type="text" placeholder="Concepto..." value="${item.name ?? ''}" data-field="name" ${nameReadonly}>
       </div>
       <div class="source-toggle">
         <button class="${item.source !== 'table' ? 'active' : ''}" data-src="manual">Manual</button>
@@ -380,7 +395,7 @@ function createItemRow(layerIdx, itemIdx) {
       <div class="currency-toggle" style="display:none">
         <button class="active ars-active" data-currency="ARS">ARS $</button>
       </div>
-      <button class="btn-icon" title="Eliminar">✕</button>
+      ${item.mandatory ? '' : '<button class="btn-icon" title="Eliminar">✕</button>'}
     </div>
     <div class="cost-item-row2">
       <div class="item-field field-value">
@@ -449,12 +464,15 @@ function createItemRow(layerIdx, itemIdx) {
     });
   });
 
-  // Delete
-  row.querySelector('.btn-icon').addEventListener('click', () => {
-    layers[layerIdx].items.splice(itemIdx, 1);
-    renderLayerItems(layerIdx);
-    recalculate();
-  });
+  // Delete (solo para ítems no obligatorios)
+  const deleteBtn = row.querySelector('.btn-icon');
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', () => {
+      layers[layerIdx].items.splice(itemIdx, 1);
+      renderLayerItems(layerIdx);
+      recalculate();
+    });
+  }
 
   return row;
 }
@@ -757,6 +775,9 @@ function recalculate() {
 
   // Warnings
   renderWarnings(effectiveYield, totalCostPerKgArs, marginPct, usdArsRate);
+
+  // Checklist de completitud
+  renderChecklist();
 
   return { totalCostPerKg: totalCostPerKgUsd, totalCostPerKgArs, commPerKg: commPerKgArs, pricePerKgUsd, pricePerKgArs, marginPct };
 }
@@ -1291,6 +1312,71 @@ function buildInternalTable(calc = null) {
 
     breakdownEl.innerHTML = html;
   }
+}
+
+// ============================================================
+// MIGRACIÓN: ASEGURAR ÍTEMS OBLIGATORIOS
+// ============================================================
+function ensureMandatoryItems() {
+  const mandatoryDefs = buildMandatoryItems('local');
+  MANDATORY_ITEMS.forEach(mi => {
+    const layer = layers.find(l => l.id === mi.layer);
+    if (!layer) return;
+    let existing = layer.items.find(item => item.mandatory_id === mi.id);
+    if (!existing) {
+      existing = layer.items.find(item => item.name && item.name.toLowerCase() === mi.name.toLowerCase());
+    }
+    if (existing) {
+      existing.mandatory = true;
+      existing.mandatory_id = mi.id;
+    } else {
+      const template = mandatoryDefs.find(d => d.mandatory_id === mi.id);
+      if (template) layer.items.unshift({ ...template });
+    }
+  });
+}
+
+// ============================================================
+// CHECKLIST DE COMPLETITUD
+// ============================================================
+function renderChecklist() {
+  const panel = document.getElementById('checklist-panel');
+  if (!panel) return;
+
+  const checks = [];
+
+  // Campos generales local
+  checks.push({ label: 'Cliente', ok: !!document.getElementById('client-name').value.trim() });
+  checks.push({ label: 'Producto', ok: !!document.getElementById('product-select').value });
+  checks.push({ label: 'TC', ok: (parseNum(document.getElementById('usd-ars-rate').value) || 0) > 0 });
+  checks.push({ label: 'Entrega', ok: !!document.getElementById('delivery-term-select').value });
+  checks.push({ label: 'Pago', ok: !!selectedPaymentTerm });
+  checks.push({ label: 'Volumen', ok: (parseNum(document.getElementById('volume-kg').value) || 0) > 0 });
+
+  // Ítems obligatorios de costo
+  MANDATORY_ITEMS.forEach(mi => {
+    const layer = layers.find(l => l.id === mi.layer);
+    if (!layer) return;
+    const item = layer.items.find(i => i.mandatory_id === mi.id);
+    let ok = false;
+    if (item) {
+      ok = (item.variable_value > 0) || (item.fixed_per_shipment > 0) || (item.fixed_per_quote > 0);
+      if (mi.has_yield && ok) {
+        ok = ok && item.yield_pct > 0;
+      }
+    }
+    checks.push({ label: mi.name, ok });
+  });
+
+  const total = checks.length;
+  const done = checks.filter(c => c.ok).length;
+
+  let html = `<span class="checklist-counter">${done}/${total}</span>`;
+  checks.forEach(c => {
+    html += `<span class="checklist-item ${c.ok ? 'ok' : 'pending'}">${c.ok ? '✓' : '○'} ${c.label}</span>`;
+  });
+
+  panel.innerHTML = html;
 }
 
 // ============================================================

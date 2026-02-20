@@ -118,6 +118,44 @@ export const LOCAL_COST_LAYERS = [
   { id: 'other',         name: 'Otros',                  applies_yield: false },
 ];
 
+// ============================================================
+// ÍTEMS OBLIGATORIOS — pre-cargados en toda cotización nueva
+// ============================================================
+export const MANDATORY_ITEMS = [
+  { id: 'pescado',         layer: 'raw_material', name: 'Pescado' },
+  { id: 'proceso',         layer: 'processing',   name: 'Proceso',           has_yield: true },
+  { id: 'mo_empaque',      layer: 'processing',   name: 'MO Empaque' },
+  { id: 'envase_primario', layer: 'packaging',     name: 'Envase primario' },
+  { id: 'envase_sec',      layer: 'packaging',     name: 'Envase secundario' },
+  { id: 'etiquetas',       layer: 'packaging',     name: 'Etiquetas' },
+  { id: 'otros',           layer: 'other',         name: 'Otros' },
+];
+
+/**
+ * Genera objetos de costo obligatorios con defaults según tipo de cotización.
+ * @param {'export'|'local'} quoteType
+ */
+export function buildMandatoryItems(quoteType) {
+  const isLocal = quoteType === 'local';
+  return MANDATORY_ITEMS.map(mi => ({
+    name: mi.name,
+    mandatory: true,
+    mandatory_id: mi.id,
+    layer: mi.layer,
+    source: 'manual',
+    table_ref: null,
+    currency: isLocal ? 'ARS' : 'USD',
+    variable_value: 0,
+    variable_unit: (isLocal && mi.layer === 'packaging') ? 'box' : 'kg',
+    variable_unit_kg: (isLocal && mi.layer === 'packaging') ? 10 : null,
+    fixed_per_shipment: 0,
+    fixed_per_quote: 0,
+    cost_per_kg_calc: 0,
+    notes: '',
+    ...(mi.has_yield ? { yield_pct: null } : {}),
+  }));
+}
+
 export const PAYMENT_TERMS = [
   { id: 'contado',       name: 'Contado' },
   { id: '7_dias',        name: '7 días' },

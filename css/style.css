@@ -2248,6 +2248,47 @@ label.rate-warning-label {
 }
 
 /* ============================================================
+   CHECKLIST DE COMPLETITUD
+   ============================================================ */
+.checklist-section {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--gray-100);
+}
+.checklist-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.checklist-counter {
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--gray-100);
+  padding: 3px 10px;
+  border-radius: 20px;
+  margin-right: 4px;
+}
+.checklist-item {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.checklist-item.ok { background: #e8f5e9; color: #2e7d32; }
+.checklist-item.pending { background: #fff8e1; color: #f57c00; }
+
+/* Ítems obligatorios — borde accent, nombre readonly */
+.cost-item.mandatory-item {
+  border-left: 3px solid var(--accent);
+}
+.cost-item.mandatory-item .item-name input[readonly] {
+  background: var(--gray-50);
+  color: var(--gray-700);
+  font-weight: 500;
+}
+
+/* ============================================================
    RESPONSIVE
    ============================================================ */
 @media (max-width: 900px) {
