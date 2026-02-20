@@ -120,6 +120,7 @@
       <thead>
         <tr>
           <th>N°</th>
+          <th>Alias</th>
           <th>Fecha</th>
           <th>Cliente</th>
           <th>Producto</th>
@@ -140,6 +141,7 @@
         : '—';
       tr.innerHTML = `
         <td class="quote-number">${q.quote_number ?? '—'}</td>
+        <td class="text-small text-muted">${q.alias || '—'}</td>
         <td>${dateStr}</td>
         <td>${q.client?.name ?? '—'}</td>
         <td>${q.product?.name ?? '—'}</td>
