@@ -92,7 +92,8 @@ async function loadProducts() {
   products.forEach(p => {
     const opt = document.createElement('option');
     opt.value = p.id;
-    opt.textContent = p.name;
+    const cal = p.specs?.caliber;
+    opt.textContent = cal ? `${p.name} — ${cal}` : p.name;
     sel.appendChild(opt);
   });
 }
@@ -1192,7 +1193,7 @@ async function printQuote(mode) {
   // Product name/specs
   document.getElementById('pdf-product-name').textContent = currentProduct?.name ?? '';
   document.getElementById('pdf-product-spec').textContent =
-    [currentProduct?.specs?.trim_cut, currentProduct?.specs?.caliber].filter(Boolean).join(' — ');
+    [currentProduct?.presentation, currentProduct?.specs?.trim_cut, currentProduct?.specs?.caliber].filter(Boolean).join(' — ');
 
   // Product details (presentación, especie, conservación, duración, etiqueta, unidad, notas)
   const detailsEl = document.getElementById('pdf-product-details');
@@ -1243,7 +1244,10 @@ async function printQuote(mode) {
   buildInternalTable(calc);
   const costArsTotal = calc?.totalCostPerKgArs ?? 0;
   document.getElementById('pdf-sum-cost').textContent = `$${costArsTotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  document.getElementById('pdf-sum-margin').textContent = `${document.getElementById('margin-pct').value}%`;
+  const marginPct = parseNum(document.getElementById('margin-pct').value) || 0;
+  const marginAbs = priceArs - costArsTotal;
+  document.getElementById('pdf-sum-margin').textContent = `${marginPct}%`;
+  document.getElementById('pdf-sum-margin-abs').textContent = `$${Math.round(marginAbs).toLocaleString('es-AR')} ARS/kg`;
   document.getElementById('pdf-sum-price').textContent = `$${Math.round(priceArs).toLocaleString('es-AR')}`;
   document.getElementById('pdf-sum-price-usd').textContent = '';
 

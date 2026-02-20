@@ -180,7 +180,7 @@ function renderProductList() {
     card.innerHTML = `
       ${thumbHTML}
       <div class="admin-card-body">
-        <div class="admin-card-name">${p.name}</div>
+        <div class="admin-card-name">${p.name}${p.specs?.caliber ? ` — ${p.specs.caliber}` : ''}</div>
         <div class="admin-card-sub">${p.presentation ?? ''} · Rend: ${p.default_yield_pct ?? '—'}%</div>
       </div>
       <div class="admin-card-actions">
@@ -513,6 +513,8 @@ function closeProductForm() {
 async function saveProduct() {
   const name = document.getElementById('p-name').value.trim();
   if (!name) { alert('El nombre es obligatorio'); return; }
+  const caliberStr = getCaliberDisplayString();
+  if (!caliberStr) { alert('Debe definir al menos un calibre'); return; }
 
   const id = editingProductId || name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
   const certifications = [...document.querySelectorAll('.cert-check:checked')].map(cb => cb.value);
@@ -788,7 +790,7 @@ function renderProductLocalList() {
     card.innerHTML = `
       ${thumbHTML}
       <div class="admin-card-body">
-        <div class="admin-card-name">${p.name}</div>
+        <div class="admin-card-name">${p.name}${p.specs?.caliber ? ` — ${p.specs.caliber}` : ''}</div>
         <div class="admin-card-sub">${p.presentation ?? ''} · Rend: ${p.default_yield_pct ?? '—'}%</div>
       </div>
       <div class="admin-card-actions">
@@ -976,6 +978,8 @@ function closeProductLocalForm() {
 async function saveProductLocal() {
   const name = document.getElementById('pl-name').value.trim();
   if (!name) { alert('El nombre es obligatorio'); return; }
+  const caliber = document.getElementById('pl-caliber').value.trim();
+  if (!caliber) { alert('El calibre es obligatorio'); return; }
 
   const id = editingProductLocalId || name.toLowerCase().replace(/[^a-z0-9áéíóúñ]+/g, '-').replace(/^-|-$/g, '');
 

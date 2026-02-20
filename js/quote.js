@@ -91,7 +91,8 @@ async function loadProducts() {
   products.forEach(p => {
     const opt = document.createElement('option');
     opt.value = p.id;
-    opt.textContent = p.name;
+    const cal = p.specs?.caliber;
+    opt.textContent = cal ? `${p.name} — ${cal}` : p.name;
     sel.appendChild(opt);
   });
 }
@@ -1343,7 +1344,7 @@ async function printQuote(mode) {
   // Nombre y specs
   document.getElementById('pdf-product-name').textContent = currentProduct?.name ?? '';
   document.getElementById('pdf-product-spec').textContent =
-    [currentProduct?.specs?.trim_cut, currentProduct?.specs?.caliber].filter(Boolean).join(' — ');
+    [currentProduct?.presentation, currentProduct?.specs?.trim_cut, currentProduct?.specs?.caliber].filter(Boolean).join(' — ');
 
   // Detalles del producto (presentación/envase, especie, notas)
   const detailsEl = document.getElementById('pdf-product-details');
@@ -1392,7 +1393,10 @@ async function printQuote(mode) {
   const calc = recalculate();   // primero calc para pasar al resumen
   buildInternalTable(calc);     // luego tabla + breakdown con calc
   document.getElementById('pdf-sum-cost').textContent = `$${(calc?.totalCostPerKg ?? 0).toFixed(3)}`;
-  document.getElementById('pdf-sum-margin').textContent = `${document.getElementById('margin-pct').value}%`;
+  const marginPctVal = parseNum(document.getElementById('margin-pct').value) || 0;
+  const marginAbsUsd = priceKg - (calc?.totalCostPerKg ?? 0);
+  document.getElementById('pdf-sum-margin').textContent = `${marginPctVal}%`;
+  document.getElementById('pdf-sum-margin-abs').textContent = `$${marginAbsUsd.toFixed(2)} USD/kg`;
   document.getElementById('pdf-sum-price').textContent = `$${priceKg.toFixed(2)}`;
   document.getElementById('pdf-sum-price-lb').textContent = `$${priceLb.toFixed(2)}/lb`;
   // Cotización del dólar
