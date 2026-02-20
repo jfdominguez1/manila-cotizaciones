@@ -197,8 +197,7 @@
         <div class="price-label">Precio de venta</div>
         <div class="price-both">
           <span class="price-kg" id="price-kg">$ —</span>
-          <span class="price-sep">·</span>
-          <span class="price-lb" id="price-usd">— USD/kg</span>
+          <span class="price-lb" id="price-usd" style="display:none"></span>
         </div>
       </div>
     </div>
@@ -237,11 +236,9 @@
         <tr>
           <th>Concepto</th>
           <th>Fuente</th>
-          <th class="num">Valor original</th>
+          <th class="num">Valor</th>
           <th class="num">Fijo/ent.</th>
-          <th class="num">Fijo/coti.</th>
-          <th class="num">$/kg</th>
-          <th class="num">ARS/kg</th>
+          <th class="num">Costo/kg</th>
         </tr>
       </thead>
       <tbody id="pdf-cost-tbody"></tbody>
@@ -251,7 +248,7 @@
       <div class="sum-cell">
         <div class="sum-label">Costo total</div>
         <div class="sum-val" id="pdf-sum-cost"></div>
-        <div class="sum-sub">USD/kg</div>
+        <div class="sum-sub">ARS/kg</div>
       </div>
       <div class="sum-cell">
         <div class="sum-label">Margen aplicado</div>

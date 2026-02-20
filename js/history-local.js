@@ -89,8 +89,7 @@ function renderTable(quotes) {
         <th>Ciudad</th>
         <th>Producto</th>
         <th>Entrega</th>
-        <th>Precio ARS/kg</th>
-        <th>Precio USD/kg</th>
+        <th>Precio/kg</th>
         <th>Margen%</th>
         <th>Pago</th>
         <th>Estado</th>
@@ -122,7 +121,6 @@ function renderTable(quotes) {
       <td>${q.product?.name ?? '—'}</td>
       <td>${deliveryLabel}</td>
       <td class="num">$${Math.round(priceArs).toLocaleString('es-AR')}</td>
-      <td class="num">$${priceUsd.toFixed(2)}</td>
       <td class="num">${q.margin_pct ?? 0}%</td>
       <td class="text-small">${q.payment_term_label ?? '—'}</td>
       <td><span class="status-badge ${q.status}">${q.status === 'confirmed' ? 'Confirmada' : 'Borrador'}</span></td>
@@ -225,8 +223,7 @@ function buildDetailHTML(q) {
     <div class="detail-price-block">
       <div>
         <div class="dpr-incoterm">${deliveryLabel}</div>
-        <div class="dpr-kg">$${priceArs}/kg ARS</div>
-        <div class="dpr-lb">USD $${priceUsd}/kg</div>
+        <div class="dpr-kg">$${priceArs}/kg</div>
       </div>
       <div class="dpr-margin">Margen: ${q.margin_pct ?? 0}%</div>
     </div>
@@ -343,11 +340,13 @@ function buildDetailHTML(q) {
   }
 
   // Final summary
+  const costArsDisplay = (q.usd_ars_rate && q.total_cost_per_kg)
+    ? `$${Math.round(q.total_cost_per_kg * q.usd_ars_rate).toLocaleString('es-AR')}/kg`
+    : `$${(q.total_cost_per_kg ?? 0).toFixed(3)}/kg`;
   html += `<div class="detail-price-block" style="margin-top:16px">
     <div>
-      <div class="dpr-incoterm">Costo total: $${(q.total_cost_per_kg ?? 0).toFixed(3)}/kg USD</div>
-      <div class="dpr-kg">$${priceArs}/kg ARS</div>
-      <div class="dpr-lb">USD $${priceUsd}/kg</div>
+      <div class="dpr-incoterm">Costo total: ${costArsDisplay}</div>
+      <div class="dpr-kg">$${priceArs}/kg</div>
     </div>
     <div class="dpr-margin">Margen: ${q.margin_pct ?? 0}%</div>
   </div>`;

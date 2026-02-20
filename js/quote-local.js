@@ -377,9 +377,8 @@ function createItemRow(layerIdx, itemIdx) {
         <button class="${item.source !== 'table' ? 'active' : ''}" data-src="manual">Manual</button>
         <button class="${item.source === 'table' ? 'active' : ''}" data-src="table">Tabla</button>
       </div>
-      <div class="currency-toggle">
-        <button class="${!isArs ? 'active' : ''}" data-currency="USD">USD</button>
-        <button class="${isArs ? 'active ars-active' : ''}" data-currency="ARS">ARS $</button>
+      <div class="currency-toggle" style="display:none">
+        <button class="active ars-active" data-currency="ARS">ARS $</button>
       </div>
       <button class="btn-icon" title="Eliminar">✕</button>
     </div>
@@ -463,7 +462,7 @@ function createItemRow(layerIdx, itemIdx) {
 function addItem(layerIdx) {
   const isProcessing = layers[layerIdx].id === 'processing';
   layers[layerIdx].items.push({
-    name: '', source: 'manual', table_ref: null, currency: 'USD',
+    name: '', source: 'manual', table_ref: null, currency: 'ARS',
     variable_value: 0, variable_unit: 'kg', variable_unit_kg: null,
     fixed_per_shipment: 0, fixed_per_quote: 0, cost_per_kg_calc: 0, notes: '',
     ...(isProcessing ? { yield_pct: null } : {})
@@ -503,7 +502,7 @@ function showTablePicker(layerIdx, itemIdx, row) {
       const item = layers[layerIdx].items[itemIdx];
       item.name = item.name || t.name;
       item.table_ref = t.id;
-      item.currency = t.currency ?? 'USD';
+      item.currency = t.currency ?? 'ARS';
       item.variable_value = t.variable_value ?? 0;
       item.variable_unit = t.variable_unit ?? 'kg';
       item.variable_unit_kg = t.variable_unit_kg ?? null;
@@ -649,24 +648,23 @@ function recalculate() {
 
       const resultEl = document.querySelector(`[data-result="${idx}-${itemIdx}"]`);
       if (resultEl) {
-        if (item.currency === 'ARS') {
-          const arsStr = rawAdjARS.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-          if (usdArsRate > 0) {
-            resultEl.innerHTML = `<span class="ars-raw">ARS $${arsStr}/kg</span><span class="ars-usd">→ $${adjusted.toFixed(3)}/kg</span>`;
-          } else {
-            resultEl.innerHTML = `<span class="ars-raw">ARS $${arsStr}/kg</span><span class="ars-notc">⚠ sin TC</span>`;
-          }
+        const arsVal = item.currency === 'ARS' ? rawAdjARS : (usdArsRate > 0 ? adjusted * usdArsRate : 0);
+        if (arsVal > 0) {
+          resultEl.textContent = `$${arsVal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/kg`;
           resultEl.classList.remove('na');
         } else {
-          resultEl.textContent = `$${adjusted.toFixed(3)}/kg`;
-          resultEl.classList.toggle('na', adjusted === 0);
+          resultEl.textContent = '$0,00/kg';
+          resultEl.classList.add('na');
         }
       }
     });
 
     totalCostPerKg += layerTotal;
     const totalEl = document.getElementById(`layer-total-${idx}`);
-    if (totalEl) totalEl.textContent = `$${layerTotal.toFixed(3)}/kg`;
+    if (totalEl) {
+      const layerArs = usdArsRate > 0 ? layerTotal * usdArsRate : 0;
+      totalEl.textContent = `$${layerArs.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/kg`;
+    }
   });
 
   // Lock price mode
@@ -724,7 +722,10 @@ function recalculate() {
 
   // Commission total
   const commTotalEl = document.getElementById('comm-total');
-  if (commTotalEl) commTotalEl.textContent = `$${commPerKg.toFixed(3)}/kg`;
+  if (commTotalEl) {
+    const commArs = usdArsRate > 0 ? commPerKg * usdArsRate : 0;
+    commTotalEl.textContent = `$${commArs.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/kg`;
+  }
 
   // Summary
   renderSummary(layers, totalCostPerKg, commPerKg, marginPct, pricePerKgUsd, pricePerKgArs, volumeKg, usdArsRate);
@@ -732,13 +733,13 @@ function recalculate() {
   // Price highlight — en ARS
   if (pricePerKgArs > 0) {
     document.getElementById('price-kg').textContent = `$${Math.round(pricePerKgArs).toLocaleString('es-AR')}/kg`;
-    document.getElementById('price-usd').textContent = `USD ${pricePerKgUsd.toFixed(2)}/kg`;
+    document.getElementById('price-usd').textContent = '';
     document.getElementById('btn-confirm').disabled = false;
     document.getElementById('btn-print-client').disabled = false;
     document.getElementById('btn-print-internal').disabled = false;
   } else {
     document.getElementById('price-kg').textContent = '$ —';
-    document.getElementById('price-usd').textContent = '— USD/kg';
+    document.getElementById('price-usd').textContent = '';
     document.getElementById('btn-confirm').disabled = true;
     document.getElementById('btn-print-client').disabled = true;
     document.getElementById('btn-print-internal').disabled = true;
@@ -878,6 +879,8 @@ function renderDeliveryCoverage() {
 
 function renderSummary(layers, totalCost, commPerKg, marginPct, pricePerKgUsd, pricePerKgArs, volumeKg, usdArsRate) {
   const container = document.getElementById('cost-summary');
+  const tc = usdArsRate || 0;
+  const fmtArs = v => `$${(v * tc).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   let html = '';
 
   const effectiveYield = computeEffectiveYield();
@@ -893,52 +896,46 @@ function renderSummary(layers, totalCost, commPerKg, marginPct, pricePerKgUsd, p
       const mpRaw = mpTotal * effectiveYield;
       html += `<div class="cost-summary-row">
         <span class="label">Materia Prima
-          <em class="yield-annotation">$${mpRaw.toFixed(3)} ÷ ${(effectiveYield * 100).toFixed(1)}%</em>
+          <em class="yield-annotation">${fmtArs(mpRaw)} ÷ ${(effectiveYield * 100).toFixed(1)}%</em>
         </span>
-        <span class="value">$${mpTotal.toFixed(3)}/kg</span>
+        <span class="value">${fmtArs(mpTotal)}/kg</span>
       </div>`;
     } else {
       html += `<div class="cost-summary-row">
         <span class="label">${l.name}</span>
-        <span class="value">$${layerTotal.toFixed(3)}/kg</span>
+        <span class="value">${fmtArs(layerTotal)}/kg</span>
       </div>`;
     }
 
     if (l.id === 'processing' && (mpTotal > 0 || procTotal > 0)) {
       html += `<div class="cost-summary-row production-subtotal">
         <span class="label">↳ Costo Mercadería+MO</span>
-        <span class="value">$${productionSubtotal.toFixed(3)}/kg</span>
+        <span class="value">${fmtArs(productionSubtotal)}/kg</span>
       </div>`;
     }
   });
 
-  if (usdArsRate > 0) {
-    html += `<div class="cost-summary-row ars-rate-note">
-      <span class="label">💱 TC ARS/USD</span>
-      <span class="value">$${usdArsRate.toLocaleString('es-AR')}/USD</span>
-    </div>`;
-  }
-
   html += `<div class="cost-summary-row separator">
     <span class="label">Subtotal costos</span>
-    <span class="value">$${totalCost.toFixed(3)}/kg</span>
+    <span class="value">${fmtArs(totalCost)}/kg</span>
   </div>`;
 
   if (commPerKg > 0) {
     html += `<div class="cost-summary-row">
       <span class="label">Comisión</span>
-      <span class="value">$${commPerKg.toFixed(3)}/kg</span>
+      <span class="value">${fmtArs(commPerKg)}/kg</span>
     </div>`;
   }
 
+  const marginAmount = pricePerKgUsd - totalCost - commPerKg;
   html += `<div class="cost-summary-row">
     <span class="label">Margen (${(marginPct * 100).toFixed(1)}%)</span>
-    <span class="value">$${(pricePerKgUsd - totalCost - commPerKg).toFixed(3)}/kg</span>
+    <span class="value">${fmtArs(marginAmount)}/kg</span>
   </div>`;
 
   if (pricePerKgArs > 0) {
     html += `<div class="cost-summary-row separator" style="font-weight:700">
-      <span class="label">Precio ARS</span>
+      <span class="label">Precio de venta</span>
       <span class="value">$${Math.round(pricePerKgArs).toLocaleString('es-AR')}/kg</span>
     </div>`;
   }
@@ -1161,10 +1158,11 @@ async function printQuote(mode) {
   document.getElementById('pdf-int-quote-number').textContent = currentQuoteNumber;
   const calc = recalculate();
   buildInternalTable(calc);
-  document.getElementById('pdf-sum-cost').textContent = `$${(calc?.totalCostPerKg ?? 0).toFixed(3)}`;
+  const costArsTotal = usdArsRate > 0 ? (calc?.totalCostPerKg ?? 0) * usdArsRate : 0;
+  document.getElementById('pdf-sum-cost').textContent = `$${costArsTotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   document.getElementById('pdf-sum-margin').textContent = `${document.getElementById('margin-pct').value}%`;
   document.getElementById('pdf-sum-price').textContent = `$${Math.round(priceArs).toLocaleString('es-AR')}`;
-  document.getElementById('pdf-sum-price-usd').textContent = `USD ${priceUsd.toFixed(2)}/kg`;
+  document.getElementById('pdf-sum-price-usd').textContent = '';
 
   // Rate note
   const rateEl = document.getElementById('pdf-rate-note');
@@ -1225,6 +1223,7 @@ function buildInternalTable(calc = null) {
   const tbody = document.getElementById('pdf-cost-tbody');
   tbody.innerHTML = '';
   const usdArsRate = parseNum(document.getElementById('usd-ars-rate').value) || 0;
+  const fmtArs = v => `$${v.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   layers.forEach(layer => {
     if (layer.items.length === 0) return;
@@ -1235,25 +1234,21 @@ function buildInternalTable(calc = null) {
     const yieldNote = layer.applies_yield && ey < 1
       ? ` (÷ ${(ey * 100).toFixed(1)}% rdto → ×${(1/ey).toFixed(2)})`
       : '';
-    layerRow.innerHTML = `<td colspan="7">${layer.name}${yieldNote}</td>`;
+    layerRow.innerHTML = `<td colspan="5">${layer.name}${yieldNote}</td>`;
     tbody.appendChild(layerRow);
 
     let layerTotal = 0;
     layer.items.forEach(item => {
       const tr = document.createElement('tr');
       const unitLabel = COST_UNITS.find(u => u.id === item.variable_unit)?.label ?? item.variable_unit;
-      const cur = item.currency === 'ARS' ? 'ARS $' : 'USD';
-      const curBadge = `<span style="font-size:8pt;font-weight:700;padding:1px 4px;border-radius:3px;background:${item.currency === 'ARS' ? '#fef3cd' : '#dce9f0'};color:${item.currency === 'ARS' ? '#7c5a00' : '#365A6E'}">${cur}</span>`;
       const costUsd = (item.cost_per_kg_calc ?? 0);
       const costArs = usdArsRate > 0 ? costUsd * usdArsRate : 0;
       tr.innerHTML = `
         <td>${item.name || '—'}</td>
-        <td>${item.source === 'table' ? 'Tabla' : 'Manual'} ${curBadge}</td>
-        <td class="num">${(item.variable_value ?? 0).toFixed(2)} ${unitLabel}</td>
-        <td class="num">${item.fixed_per_shipment ? (item.currency === 'ARS' ? 'ARS $' : '$') + item.fixed_per_shipment.toFixed(2) : '—'}</td>
-        <td class="num">${item.fixed_per_quote ? (item.currency === 'ARS' ? 'ARS $' : '$') + item.fixed_per_quote.toFixed(2) : '—'}</td>
-        <td class="num">$${costUsd.toFixed(4)}</td>
-        <td class="num">${costArs > 0 ? '$' + Math.round(costArs).toLocaleString('es-AR') : '—'}</td>
+        <td>${item.source === 'table' ? 'Tabla' : 'Manual'}</td>
+        <td class="num">${fmtArs(item.variable_value ?? 0)} ${unitLabel}</td>
+        <td class="num">${item.fixed_per_shipment ? fmtArs(item.fixed_per_shipment) : '—'}</td>
+        <td class="num">${costArs > 0 ? fmtArs(costArs) + '/kg' : '—'}</td>
       `;
       tbody.appendChild(tr);
       layerTotal += costUsd;
@@ -1263,7 +1258,7 @@ function buildInternalTable(calc = null) {
       const subRow = document.createElement('tr');
       subRow.className = 'subtotal';
       const subArs = usdArsRate > 0 ? layerTotal * usdArsRate : 0;
-      subRow.innerHTML = `<td colspan="5">Subtotal ${layer.name}</td><td class="num">$${layerTotal.toFixed(4)}</td><td class="num">${subArs > 0 ? '$' + Math.round(subArs).toLocaleString('es-AR') : '—'}</td>`;
+      subRow.innerHTML = `<td colspan="4">Subtotal ${layer.name}</td><td class="num">${subArs > 0 ? fmtArs(subArs) + '/kg' : '—'}</td>`;
       tbody.appendChild(subRow);
     }
   });
@@ -1272,28 +1267,28 @@ function buildInternalTable(calc = null) {
   const breakdownEl = document.getElementById('pdf-cost-breakdown');
   if (breakdownEl && calc) {
     const { totalCostPerKg, commPerKg, pricePerKgUsd, pricePerKgArs, marginPct } = calc;
-    const usdArsR = parseNum(document.getElementById('usd-ars-rate').value) || 0;
+    const tc = parseNum(document.getElementById('usd-ars-rate').value) || 0;
+    const fmtBd = v => tc > 0 ? fmtArs(v * tc) : '—';
 
     let html = '<div class="pdf-cost-breakdown-title">Resumen por capa</div>';
 
     layers.forEach(l => {
       if (l.items.length === 0) return;
       const layerTotal = l.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0);
-      const arsEquiv = usdArsR > 0 ? ` <span style="font-size:6.5pt;opacity:.65">($${Math.round(layerTotal * usdArsR).toLocaleString('es-AR')} ARS)</span>` : '';
-      html += `<div class="pdf-breakdown-row"><span class="bd-label">${l.name}</span><span class="bd-val">$${layerTotal.toFixed(3)}/kg${arsEquiv}</span></div>`;
+      html += `<div class="pdf-breakdown-row"><span class="bd-label">${l.name}</span><span class="bd-val">${fmtBd(layerTotal)}/kg</span></div>`;
     });
 
     if (commPerKg > 0) {
-      html += `<div class="pdf-breakdown-row"><span class="bd-label">Comisión (${commission.pct}%)</span><span class="bd-val">$${commPerKg.toFixed(3)}/kg</span></div>`;
+      html += `<div class="pdf-breakdown-row"><span class="bd-label">Comisión (${commission.pct}%)</span><span class="bd-val">${fmtBd(commPerKg)}/kg</span></div>`;
     }
 
     const marginAmount = pricePerKgUsd - totalCostPerKg - commPerKg;
-    html += `<div class="pdf-breakdown-row separator"><span class="bd-label">Subtotal costos</span><span class="bd-val">$${totalCostPerKg.toFixed(3)}/kg</span></div>`;
-    html += `<div class="pdf-breakdown-row"><span class="bd-label">Margen (${(marginPct * 100).toFixed(1)}%)</span><span class="bd-val">+$${marginAmount.toFixed(3)}/kg</span></div>`;
-    html += `<div class="pdf-breakdown-row total"><span class="bd-label">Precio final</span><span class="bd-val">$${Math.round(pricePerKgArs).toLocaleString('es-AR')}/kg ARS · USD ${pricePerKgUsd.toFixed(2)}/kg</span></div>`;
+    html += `<div class="pdf-breakdown-row separator"><span class="bd-label">Subtotal costos</span><span class="bd-val">${fmtBd(totalCostPerKg)}/kg</span></div>`;
+    html += `<div class="pdf-breakdown-row"><span class="bd-label">Margen (${(marginPct * 100).toFixed(1)}%)</span><span class="bd-val">+${fmtBd(marginAmount)}/kg</span></div>`;
+    html += `<div class="pdf-breakdown-row total"><span class="bd-label">Precio final</span><span class="bd-val">$${Math.round(pricePerKgArs).toLocaleString('es-AR')}/kg</span></div>`;
 
-    if (usdArsR > 0) {
-      html += `<div class="pdf-breakdown-row" style="margin-top:2mm;border-top:1px solid #e5e3e0;padding-top:2mm;color:#7c5a00;font-size:7pt"><span class="bd-label">💱 Tipo de cambio ARS/USD</span><span class="bd-val">$${usdArsR.toLocaleString('es-AR')}/USD</span></div>`;
+    if (tc > 0) {
+      html += `<div class="pdf-breakdown-row" style="margin-top:2mm;border-top:1px solid #e5e3e0;padding-top:2mm;color:#7c5a00;font-size:7pt"><span class="bd-label">💱 Tipo de cambio</span><span class="bd-val">$${tc.toLocaleString('es-AR')}/USD</span></div>`;
     }
 
     breakdownEl.innerHTML = html;
