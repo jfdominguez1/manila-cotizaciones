@@ -1345,6 +1345,21 @@ async function printQuote(mode) {
   document.getElementById('pdf-product-spec').textContent =
     [currentProduct?.specs?.trim_cut, currentProduct?.specs?.caliber].filter(Boolean).join(' — ');
 
+  // Detalles del producto (presentación/envase, especie, notas)
+  const detailsEl = document.getElementById('pdf-product-details');
+  if (detailsEl && currentProduct) {
+    const details = [];
+    if (currentProduct.presentation) details.push(currentProduct.presentation);
+    if (currentProduct.specs?.species) details.push(currentProduct.specs.species);
+    if (currentProduct.notes) details.push(currentProduct.notes);
+    if (details.length > 0) {
+      detailsEl.textContent = details.join(' · ');
+      detailsEl.style.display = '';
+    } else {
+      detailsEl.style.display = 'none';
+    }
+  }
+
   // Certificaciones (solo las seleccionadas)
   const selectedCerts = getSelectedCerts();
   const certsEl = document.getElementById('pdf-certs');

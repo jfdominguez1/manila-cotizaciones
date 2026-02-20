@@ -1194,10 +1194,12 @@ async function printQuote(mode) {
   document.getElementById('pdf-product-spec').textContent =
     [currentProduct?.specs?.trim_cut, currentProduct?.specs?.caliber].filter(Boolean).join(' — ');
 
-  // Product details (conservación, duración, etiqueta)
+  // Product details (presentación, especie, conservación, duración, etiqueta, unidad, notas)
   const detailsEl = document.getElementById('pdf-product-details');
   if (detailsEl && currentProduct) {
     const details = [];
+    if (currentProduct.presentation) details.push(currentProduct.presentation);
+    if (currentProduct.specs?.species) details.push(currentProduct.specs.species);
     if (currentProduct.conservation) {
       const consLabel = currentProduct.conservation === 'refrigerado' ? 'Refrigerado' : 'Congelado';
       details.push(consLabel);
@@ -1205,10 +1207,12 @@ async function printQuote(mode) {
     if (currentProduct.shelf_life_days) {
       details.push(`Vida útil: ${currentProduct.shelf_life_days} días`);
     }
+    if (currentProduct.sale_unit) details.push(`Unidad: ${currentProduct.sale_unit}`);
     if (currentProduct.label_brand) {
       const lb = BRANDS[currentProduct.label_brand];
       if (lb) details.push(`Etiqueta: ${lb.name}`);
     }
+    if (currentProduct.notes) details.push(currentProduct.notes);
     if (details.length > 0) {
       detailsEl.textContent = details.join(' · ');
       detailsEl.style.display = '';

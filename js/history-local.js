@@ -251,7 +251,7 @@ function buildDetailHTML(q) {
       </div>
       <div class="detail-cell">
         <div class="dc-label">Producto</div>
-        <div class="dc-val">${q.product?.name ?? '—'}</div>
+        <div class="dc-val">${q.product?.name ?? '—'}${q.product?.presentation ? ` — ${q.product.presentation}` : ''}${q.product?.specs?.species ? `<br><span style="font-size:11px;color:var(--gray-500)">${q.product.specs.species}</span>` : ''}${q.product?.specs?.trim_cut ? `<br><span style="font-size:11px;color:var(--gray-500)">${q.product.specs.trim_cut}${q.product?.specs?.caliber ? ` · ${q.product.specs.caliber}` : ''}</span>` : ''}${q.product?.conservation || q.product?.sale_unit || q.product?.label_brand ? `<br><span style="font-size:11px;color:var(--gray-500)">${[q.product.conservation === 'refrigerado' ? 'Refrigerado' : q.product.conservation === 'congelado' ? 'Congelado' : '', q.product.sale_unit ? `Unidad: ${q.product.sale_unit}` : '', q.product.label_brand ? `Etiqueta: ${q.product.label_brand}` : ''].filter(Boolean).join(' · ')}</span>` : ''}</div>
       </div>
       <div class="detail-cell">
         <div class="dc-label">Volumen</div>

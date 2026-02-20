@@ -236,7 +236,7 @@ function buildDetailHTML(q) {
       </div>
       <div class="detail-cell">
         <div class="dc-label">Producto</div>
-        <div class="dc-val">${q.product?.name ?? '—'}</div>
+        <div class="dc-val">${q.product?.name ?? '—'}${q.product?.presentation ? ` — ${q.product.presentation}` : ''}${q.product?.specs?.species ? `<br><span style="font-size:11px;color:var(--gray-500)">${q.product.specs.species}</span>` : ''}${q.product?.specs?.trim_cut ? `<br><span style="font-size:11px;color:var(--gray-500)">${q.product.specs.trim_cut}${q.product?.specs?.caliber ? ` · ${q.product.specs.caliber}` : ''}</span>` : ''}${q.product?.notes ? `<br><span style="font-size:11px;color:var(--gray-500)">${q.product.notes}</span>` : ''}</div>
       </div>
       <div class="detail-cell">
         <div class="dc-label">Volumen</div>
