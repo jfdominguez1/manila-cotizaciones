@@ -1,12 +1,9 @@
 import { requireAuth, logout } from './auth.js';
-import { db, storage } from './firebase.js';
+import { db } from './firebase.js';
 import { COST_LAYERS, COST_UNITS, parseNum } from './config.js';
 import {
   collection, getDocs, setDoc, deleteDoc, doc
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
-import {
-  ref, uploadBytes, getDownloadURL
-} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js';
 
 let currentUser = null;
 let products = [];
@@ -187,8 +184,9 @@ function renderProductList() {
   });
 }
 
-async function compressImage(file, maxDim = 1600, quality = 0.82) {
-  return new Promise(resolve => {
+// Comprime y devuelve data URL base64 (se guarda en Firestore, sin Storage)
+async function compressToBase64(file, maxDim = 600, quality = 0.78) {
+  return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
@@ -201,8 +199,11 @@ async function compressImage(file, maxDim = 1600, quality = 0.82) {
       const canvas = document.createElement('canvas');
       canvas.width = width; canvas.height = height;
       canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-      canvas.toBlob(resolve, 'image/jpeg', quality);
+      const dataUrl = canvas.toDataURL('image/jpeg', quality);
+      if (!dataUrl || dataUrl === 'data:,') { reject(new Error('No se pudo procesar la imagen')); return; }
+      resolve(dataUrl);
     };
+    img.onerror = () => reject(new Error('No se pudo cargar la imagen'));
     img.src = url;
   });
 }
@@ -290,17 +291,12 @@ function renderPhotoPicker(currentPhotoSrc) {
     uploadLabel.classList.add('uploading');
     uploadLabel.querySelector('span').textContent = '···';
     try {
-      const blob = await compressImage(file);
-      if (!blob) throw new Error('No se pudo procesar la imagen. Probá con otro archivo.');
-      const filename = `product-photos/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-      const storageRef = ref(storage, filename);
-      await uploadBytes(storageRef, blob, { contentType: 'image/jpeg' });
-      const url = await getDownloadURL(storageRef);
-      if (!localPhotos.includes(url)) localPhotos.push(url);
-      renderPhotoPicker(url);
+      const dataUrl = await compressToBase64(file);
+      localPhotos.push(dataUrl);
+      renderPhotoPicker(dataUrl);
     } catch (err) {
-      console.error('Upload error:', err);
-      alert('Error al subir la foto: ' + err.message);
+      console.error('Error procesando imagen:', err);
+      alert('Error al procesar la imagen: ' + err.message);
       uploadLabel.classList.remove('uploading');
       uploadLabel.querySelector('span').textContent = '＋';
     }
