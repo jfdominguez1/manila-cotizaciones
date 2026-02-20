@@ -557,6 +557,9 @@ async function loadCostItems() {
   renderCostList();
 }
 
+// Estado de grupos colapsados
+const collapsedGroups = {};
+
 function renderCostList() {
   const container = document.getElementById('costs-list');
   if (!costItems.length) {
@@ -578,35 +581,91 @@ function renderCostList() {
     byLayer[item.layer].push(item);
   });
 
-  container.innerHTML = '';
+  // Tabla HTML
+  let html = '<table class="cost-admin-table"><thead><tr>';
+  html += '<th>Nombre</th><th>Moneda</th><th>Valor</th><th>Unidad</th><th>kg/u</th>';
+  html += '<th>Fijo/emb</th><th>Fijo/coti</th><th>Notas</th><th>Actualizado</th><th></th>';
+  html += '</tr></thead>';
+
   ALL_LAYERS.forEach(layer => {
     const items = byLayer[layer.id] ?? [];
     if (!items.length) return;
 
-    const sectionTitle = document.createElement('h3');
-    sectionTitle.style.cssText = 'font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--gray-500);margin:20px 0 8px;';
-    sectionTitle.textContent = layer.name;
-    container.appendChild(sectionTitle);
+    const isCollapsed = collapsedGroups[layer.id] ?? false;
+    const arrow = isCollapsed ? '▶' : '▼';
+
+    html += `<tbody data-layer="${layer.id}">`;
+    html += `<tr class="cat-group-header" data-toggle="${layer.id}"><td colspan="10">${arrow} ${layer.name} (${items.length})</td></tr>`;
 
     items.forEach(item => {
-      const el = document.createElement('div');
-      el.className = 'cost-table-item';
       const unitLabel = COST_UNITS.find(u => u.id === item.variable_unit)?.label ?? item.variable_unit;
       const currency = item.currency ?? 'USD';
-      el.innerHTML = `
-        <span class="cti-name">${item.name}</span>
-        <span class="cti-layer">${layer.name}</span>
-        <span class="currency-badge ${currency === 'ARS' ? 'ars' : 'usd'}">${currency}</span>
-        <span class="cti-val">${item.variable_value ?? 0} ${unitLabel}</span>
-        <span class="cti-val">${item.variable_unit_kg ? item.variable_unit_kg + ' kg/u' : '—'}</span>
-        <span class="cti-val">${item.fixed_per_shipment ? '$' + item.fixed_per_shipment + '/emb' : '—'}</span>
-        <span class="cti-val">${item.fixed_per_quote ? '$' + item.fixed_per_quote + '/coti' : '—'}</span>
-        <button class="btn-secondary" style="padding:5px 10px;font-size:12px" data-edit="${item.id}">Editar</button>
-      `;
-      el.querySelector('[data-edit]').addEventListener('click', () => openCostForm(item.id));
-      container.appendChild(el);
+      const dateStr = item.updated_at
+        ? new Date(item.updated_at).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: '2-digit' })
+        : '—';
+      const notes = item.notes ? `<span title="${item.notes.replace(/"/g, '&quot;')}">${item.notes.length > 20 ? item.notes.slice(0, 20) + '…' : item.notes}</span>` : '—';
+
+      html += `<tr class="cat-item-row" style="${isCollapsed ? 'display:none' : ''}">`;
+      html += `<td class="cti-name">${item.name}</td>`;
+      html += `<td><span class="currency-badge ${currency === 'ARS' ? 'ars' : 'usd'}">${currency}</span></td>`;
+      html += `<td class="cti-val">${item.variable_value ?? 0}</td>`;
+      html += `<td class="cti-val">${unitLabel}</td>`;
+      html += `<td class="cti-val">${item.variable_unit_kg ?? '—'}</td>`;
+      html += `<td class="cti-val">${item.fixed_per_shipment ? '$' + item.fixed_per_shipment : '—'}</td>`;
+      html += `<td class="cti-val">${item.fixed_per_quote ? '$' + item.fixed_per_quote : '—'}</td>`;
+      html += `<td class="cti-notes">${notes}</td>`;
+      html += `<td class="cti-date">${dateStr}</td>`;
+      html += `<td><button class="btn-secondary" style="padding:5px 10px;font-size:12px" data-edit="${item.id}">Editar</button></td>`;
+      html += `</tr>`;
+    });
+
+    html += `</tbody>`;
+  });
+
+  html += '</table>';
+  container.innerHTML = html;
+
+  // Bind toggle events
+  container.querySelectorAll('.cat-group-header').forEach(header => {
+    header.addEventListener('click', () => {
+      const layerId = header.dataset.toggle;
+      collapsedGroups[layerId] = !collapsedGroups[layerId];
+      const tbody = header.closest('tbody');
+      const rows = tbody.querySelectorAll('.cat-item-row');
+      rows.forEach(r => r.style.display = collapsedGroups[layerId] ? 'none' : '');
+      const arrow = collapsedGroups[layerId] ? '▶' : '▼';
+      header.querySelector('td').textContent = `${arrow} ${header.querySelector('td').textContent.slice(2)}`;
     });
   });
+
+  // Bind edit buttons
+  container.querySelectorAll('[data-edit]').forEach(btn => {
+    btn.addEventListener('click', () => openCostForm(btn.dataset.edit));
+  });
+}
+
+function exportCostsCSV() {
+  const headers = ['Nombre', 'Capa', 'Moneda', 'Valor', 'Unidad', 'kg/u', 'Fijo/emb', 'Fijo/coti', 'Notas', 'Actualizado'];
+  const ALL_LAYERS = [
+    ...COST_LAYERS,
+    ...LOCAL_COST_LAYERS.filter(l => !COST_LAYERS.find(cl => cl.id === l.id))
+  ];
+  const rows = costItems.map(item => {
+    const layerName = ALL_LAYERS.find(l => l.id === item.layer)?.name ?? item.layer;
+    return [
+      item.name, layerName, item.currency ?? 'USD', item.variable_value ?? 0,
+      item.variable_unit ?? '', item.variable_unit_kg ?? '', item.fixed_per_shipment ?? 0,
+      item.fixed_per_quote ?? 0, item.notes ?? '', item.updated_at ?? ''
+    ];
+  });
+  const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `costos-manila-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function bindCostForm() {
@@ -614,6 +673,7 @@ function bindCostForm() {
   document.getElementById('btn-cancel-cost').addEventListener('click', closeCostForm);
   document.getElementById('btn-save-cost').addEventListener('click', saveCostItem);
   document.getElementById('btn-delete-cost').addEventListener('click', deleteCostItem);
+  document.getElementById('btn-export-costs').addEventListener('click', exportCostsCSV);
 
   // Toggle kg/unit field
   document.getElementById('c-unit').addEventListener('change', toggleUnitKg);
@@ -685,7 +745,8 @@ async function saveCostItem() {
     variable_unit_kg: needsKg ? (parseNum(document.getElementById('c-unitkg').value) || null) : null,
     fixed_per_shipment: parseNum(document.getElementById('c-fixed-ship').value) || 0,
     fixed_per_quote: parseNum(document.getElementById('c-fixed-quote').value) || 0,
-    notes: document.getElementById('c-notes').value.trim()
+    notes: document.getElementById('c-notes').value.trim(),
+    updated_at: new Date().toISOString()
   };
 
   await setDoc(doc(db, 'cost_tables', id), item);

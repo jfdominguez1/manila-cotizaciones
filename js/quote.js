@@ -16,6 +16,7 @@ let currentProduct = null;
 let currentQuoteId = null;   // si estamos editando un draft
 let currentQuoteNumber = null;
 let isDraft = false;
+let selectedQuotePhoto = null;
 
 // Capas de costo: array paralelo a COST_LAYERS — pre-poblado con obligatorios
 function initLayersWithMandatory() {
@@ -164,6 +165,7 @@ function populateFromData(data, isCopy = false) {
   // Producto: usar snapshot directamente para no depender del catálogo actual
   if (data.product) {
     currentProduct = data.product;
+    selectedQuotePhoto = data.product?.photo ?? null;
     const productSel = document.getElementById('product-select');
     productSel.value = data.product.id ?? '';
     // Thumbnail manual (sin llamar onProductChange para no sobreescribir yield)
@@ -175,6 +177,9 @@ function populateFromData(data, isCopy = false) {
       thumbWrap.innerHTML = '<span>📦</span>';
       thumbWrap.className = 'product-thumb-placeholder';
     }
+    // Restaurar galería con producto original del catálogo (para tener available_photos)
+    const catalogProduct = products.find(x => x.id === data.product.id);
+    if (catalogProduct) renderQuotePhotoGallery(catalogProduct);
   }
 
   // yield_pct ya no es campo global — está guardado en cada ítem de Proceso en Planta
@@ -269,6 +274,7 @@ function onProductChange() {
   const sel = document.getElementById('product-select');
   const p = products.find(x => x.id === sel.value);
   currentProduct = p ?? null;
+  selectedQuotePhoto = null;
 
   const thumbWrap = document.getElementById('product-thumb-wrap');
   if (p && p.photo) {
@@ -279,12 +285,36 @@ function onProductChange() {
     thumbWrap.className = 'product-thumb-placeholder';
   }
 
-  // yield_pct ya no es campo global — vive en cada ítem de Proceso en Planta
+  // Photo gallery
+  renderQuotePhotoGallery(p);
 
   // Renderizar cert picker
   renderCertPicker(p);
 
   recalculate();
+}
+
+function renderQuotePhotoGallery(product) {
+  const gallery = document.getElementById('quote-photo-gallery');
+  const photos = product?.available_photos ?? [];
+  if (photos.length <= 1) { gallery.style.display = 'none'; return; }
+
+  gallery.style.display = '';
+  gallery.innerHTML = '';
+  photos.forEach(src => {
+    const item = document.createElement('div');
+    item.className = 'qpg-item' + (src === (selectedQuotePhoto || product.photo) ? ' selected' : '');
+    item.innerHTML = `<img src="${src}" alt="">`;
+    item.addEventListener('click', () => {
+      selectedQuotePhoto = src;
+      const thumbWrap = document.getElementById('product-thumb-wrap');
+      thumbWrap.innerHTML = `<img class="product-thumb" src="${src}" alt="${product.name}">`;
+      thumbWrap.className = '';
+      gallery.querySelectorAll('.qpg-item').forEach(i => i.classList.remove('selected'));
+      item.classList.add('selected');
+    });
+    gallery.appendChild(item);
+  });
 }
 
 function renderCertPicker(product) {
@@ -323,7 +353,7 @@ function renderLayers() {
       : '';
 
     const processingYieldSlot = layer.id === 'processing'
-      ? `<span class="layer-yield-effective" id="processing-yield-display">Rdto: —</span>`
+      ? `<span class="layer-yield-effective" id="processing-yield-display">Rdto: —</span><div id="yield-warning" class="yield-warning" style="display:none"></div>`
       : '';
 
     section.innerHTML = `
@@ -537,6 +567,12 @@ function showTablePicker(layerIdx, itemIdx, row) {
 
   const select = document.createElement('select');
   select.style.cssText = 'position:fixed;z-index:999;background:#fff;border:2px solid var(--accent);padding:8px;border-radius:6px;font-size:13px;font-family:var(--font);box-shadow:0 4px 20px rgba(0,0,0,0.15)';
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = '— Elegir ítem de tabla —';
+  placeholder.disabled = true;
+  placeholder.selected = true;
+  select.appendChild(placeholder);
   tables.forEach(t => {
     const opt = document.createElement('option');
     opt.value = t.id;
@@ -562,6 +598,7 @@ function showTablePicker(layerIdx, itemIdx, row) {
       item.variable_unit_kg = t.variable_unit_kg ?? null;
       item.fixed_per_shipment = t.fixed_per_shipment ?? 0;
       item.fixed_per_quote = t.fixed_per_quote ?? 0;
+      item.notes = t.notes ?? '';
       renderLayerItems(layerIdx);
       recalculate();
     }
@@ -672,6 +709,24 @@ function recalculate() {
       ? `Rdto efectivo: ${(effectiveYield * 100).toFixed(1)}%`
       : 'Rdto: sin definir';
     yieldDisplay.className = 'layer-yield-effective' + (hasYield ? '' : ' undefined');
+  }
+
+  // Yield deviation warning
+  const yieldWarning = document.getElementById('yield-warning');
+  if (yieldWarning) {
+    if (currentProduct?.default_yield_pct && effectiveYield < 1) {
+      const actual = effectiveYield * 100;
+      const expected = currentProduct.default_yield_pct;
+      const deviation = Math.abs(actual - expected) / expected * 100;
+      if (deviation > 10) {
+        yieldWarning.style.display = '';
+        yieldWarning.textContent = `⚠ Rdto ${actual.toFixed(1)}% difiere ${deviation.toFixed(0)}% del standard (${expected}%)`;
+      } else {
+        yieldWarning.style.display = 'none';
+      }
+    } else {
+      yieldWarning.style.display = 'none';
+    }
   }
 
   // Badge de Materia Prima: mostrar el yield efectivo también ahí
@@ -1160,7 +1215,7 @@ function buildQuoteObject(status) {
     alias: document.getElementById('quote-alias')?.value.trim() ?? '',
     selected_certs: getSelectedCerts(),
 
-    product: currentProduct ? { ...currentProduct } : null,
+    product: currentProduct ? { ...currentProduct, photo: selectedQuotePhoto || currentProduct?.photo } : null,
     volume_kg: volumeKg,
     num_shipments: numShipments,
     effective_yield_pct: Math.round(computeEffectiveYield() * 10000) / 100,  // % con 2 decimales
@@ -1272,11 +1327,12 @@ async function printQuote(mode) {
   document.getElementById('pdf-leadtime-val').textContent = document.getElementById('lead-time').value || '—';
   document.getElementById('pdf-validuntil-val').textContent = validUntil;
 
-  // Foto producto — siempre visible (fallback de color brand si no hay foto)
+  // Foto producto — usar selectedQuotePhoto si existe
   const photoWrap = document.getElementById('pdf-photo-wrap');
   const productImg = document.getElementById('pdf-product-img');
-  if (currentProduct?.photo) {
-    productImg.src = currentProduct.photo;
+  const pdfPhoto = selectedQuotePhoto || currentProduct?.photo;
+  if (pdfPhoto) {
+    productImg.src = pdfPhoto;
     productImg.style.display = 'block';
     photoWrap.classList.add('has-photo');
   } else {

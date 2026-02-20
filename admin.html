@@ -33,7 +33,7 @@
     <a href="admin.html" class="active">Admin</a>
   </div>
   <div class="nav-right">
-    <span class="nav-version">v2.3.3</span>
+    <span class="nav-version">v2.3.4</span>
     <span class="nav-user" id="nav-user"></span>
     <button class="btn-logout" id="btn-logout">Salir</button>
   </div>
@@ -233,7 +233,10 @@
   <div class="admin-tab-content" id="tab-costs">
     <div class="admin-list-header">
       <h2>Tablas de referencia de costos</h2>
-      <button class="btn-primary" id="btn-new-cost">＋ Nuevo ítem</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn-secondary" id="btn-export-costs">📊 Exportar CSV</button>
+        <button class="btn-primary" id="btn-new-cost">＋ Nuevo ítem</button>
+      </div>
     </div>
 
     <!-- Formulario costo -->
