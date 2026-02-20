@@ -1034,35 +1034,52 @@ label.rate-warning-label {
     line-height: 1;
   }
 
-  /* ---- INFO GRID ---- */
+  /* ---- SECTION LABEL — encabezado tipo fichas ---- */
+  .pdf-section-label {
+    font-size: 7pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--pdf-accent, #2F2C2B);
+    border-bottom: 1.5px solid var(--pdf-accent, #2F2C2B);
+    padding-bottom: 1mm;
+    margin-bottom: 2.5mm;
+  }
+
+  /* ---- INFO GRID — estilo tabla limpia (sin cajas) ---- */
   .pdf-info-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 2mm;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 8mm;
     margin-bottom: 4mm;
-    font-size: 8pt;
   }
   .pdf-info-cell {
-    border: 1px solid #e5e3e0;
-    border-radius: 4px;
-    padding: 2mm 3mm;
+    display: flex;
+    align-items: baseline;
+    gap: 2.5mm;
+    border-bottom: 1px solid #ece9e5;
+    padding: 1.2mm 0;
   }
   .pdf-info-cell .cell-label {
-    font-weight: 700;
-    color: #999;
     font-size: 6.5pt;
+    font-weight: 700;
+    color: #bbb;
     text-transform: uppercase;
-    letter-spacing: 0.4px;
-    margin-bottom: 0.6mm;
+    letter-spacing: 0.3px;
+    width: 16mm;
+    flex-shrink: 0;
+    line-height: 1.4;
+    padding-top: 0.2mm;
   }
   .pdf-info-cell .cell-val {
     font-size: 8.5pt;
     font-weight: 500;
     color: #2F2C2B;
-    line-height: 1.3;
+    line-height: 1.4;
+    flex: 1;
   }
 
-  /* ---- CERTIFICACIONES ---- */
+  /* ---- CERTIFICACIONES — pills sin borde ---- */
   .pdf-certs {
     display: flex;
     gap: 3mm;
@@ -1074,18 +1091,19 @@ label.rate-warning-label {
     display: flex;
     align-items: center;
     gap: 2mm;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    padding: 2mm 4mm;
+    background: #f2f1ef;
+    border-radius: 20px;
+    padding: 1.5mm 4mm;
     font-size: 7.5pt;
   }
-  .pdf-cert-item img { height: 30px; }
+  .pdf-cert-item img { height: 16px; width: auto; }
   .pdf-cert-badge {
-    background: #f0f0f0;
-    padding: 2px 7px;
-    border-radius: 3px;
+    background: var(--pdf-accent, #2F2C2B);
+    color: #fff;
+    padding: 1px 6px;
+    border-radius: 10px;
     font-weight: 700;
-    font-size: 7.5pt;
+    font-size: 7pt;
     letter-spacing: 0.3px;
   }
   .pdf-cert-name { font-size: 8pt; color: #555; }
@@ -1150,33 +1168,32 @@ label.rate-warning-label {
     font-style: italic;
   }
 
-  /* ---- LOGISTICS GRID (PDF interno) ---- */
-  .pdf-int-logistics { margin-bottom: 3mm; }
+  /* ---- LOGISTICS (PDF interno) — estilo limpio sin cajas ---- */
+  .pdf-int-logistics { margin-bottom: 4mm; }
   .pil-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 2mm;
-    font-size: 7pt;
+    column-gap: 6mm;
   }
   .pil-cell {
-    border: 1px solid #e5e3e0;
-    border-radius: 3px;
-    padding: 1.5mm 2.5mm;
-    background: #fafafa;
+    display: flex;
+    align-items: baseline;
+    gap: 2mm;
+    border-bottom: 1px solid #ece9e5;
+    padding: 1mm 0;
   }
   .pil-label {
-    display: block;
+    font-size: 6pt;
     font-weight: 700;
-    color: #aaa;
-    font-size: 6.5pt;
+    color: #bbb;
     text-transform: uppercase;
     letter-spacing: 0.3px;
-    margin-bottom: 1mm;
+    flex-shrink: 0;
+    white-space: nowrap;
   }
-  .pil-label::after { content: ':'; }
+  .pil-label::after { content: ':'; margin-right: 0.5mm; }
   .pil-val {
-    display: block;
-    font-size: 8pt;
+    font-size: 7.5pt;
     font-weight: 500;
     color: #2F2C2B;
     line-height: 1.3;

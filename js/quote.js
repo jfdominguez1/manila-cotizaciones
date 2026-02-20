@@ -1344,7 +1344,7 @@ async function printQuote(mode) {
       ['Lead Time', leadTime || '—'],
       ['Cliente',  clientName || '—'],
     ];
-    logEl.innerHTML = `<div class="pil-grid">${
+    logEl.innerHTML = `<div class="pdf-section-label" style="font-size:6.5pt;margin-bottom:2mm">Logistics</div><div class="pil-grid">${
       cells.map(([l, v]) => `<div class="pil-cell"><span class="pil-label">${l}</span><span class="pil-val">${v}</span></div>`).join('')
     }</div>`;
   }

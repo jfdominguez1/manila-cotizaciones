@@ -130,6 +130,11 @@ function bindModal() {
     if (e.target === document.getElementById('detail-modal')) closeModal();
   });
 
+  document.getElementById('btn-edit-draft').addEventListener('click', () => {
+    if (!activeQuote) return;
+    window.location.href = `quote.html?draft=${encodeURIComponent(activeQuote._docId)}`;
+  });
+
   document.getElementById('btn-copy-quote').addEventListener('click', () => {
     if (!activeQuote) return;
     window.location.href = `quote.html?copy=${encodeURIComponent(activeQuote._docId)}`;
@@ -172,11 +177,14 @@ function openDetail(q) {
 
   document.getElementById('modal-title').textContent = `${q.quote_number} — ${q.client?.name ?? ''}`;
 
-  // Mostrar/ocultar delete según estado (admin puede borrar confirmadas)
+  // Mostrar/ocultar botones según estado
   const isAdmin = currentUser?.email === 'jfdominguez@gmail.com';
   const deleteBtn = document.getElementById('btn-delete-quote');
   deleteBtn.style.display = (q.status === 'draft' || isAdmin) ? '' : 'none';
   deleteBtn.textContent = (q.status === 'confirmed' && isAdmin) ? 'Eliminar (Admin)' : 'Eliminar borrador';
+
+  const editBtn = document.getElementById('btn-edit-draft');
+  editBtn.style.display = q.status === 'draft' ? '' : 'none';
 
   const body = document.getElementById('modal-body');
   body.innerHTML = buildDetailHTML(q);
