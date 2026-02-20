@@ -1,32 +1,36 @@
 # Modelo de Cálculos — Cotizaciones Manila
 
 > Documentación técnica del motor de cálculo de costos, comisiones, márgenes y precios.
-> Todo cálculo corre en el cliente (JavaScript), sin servidor. Archivo: `js/quote.js`.
-> Versión 1.8
+> Todo cálculo corre en el cliente (JavaScript), sin servidor.
+> Archivos: `js/quote.js` (export, USD) y `js/quote-local.js` (local, ARS).
+> Versión 2.0
 
 ---
 
 ## Principio general
 
-El objetivo del motor es transformar todos los costos —expresados en distintas unidades, monedas y estructuras— en un único número: **costo total en USD por kg de producto terminado**. Sobre ese número se aplica comisión y margen para obtener el precio de venta.
+El objetivo del motor es transformar todos los costos —expresados en distintas unidades, monedas y estructuras— en un único número: **costo total por kg de producto terminado**. Sobre ese número se aplica comisión y margen para obtener el precio de venta.
+
+**Export:** costo total en USD/kg → precio de venta en USD/kg y USD/lb.
+**Local:** costo total en ARS/kg → precio de venta en ARS/kg (con equivalente USD de referencia).
 
 ```
-Costo total/kg (USD) → + Comisión/kg → × (1 + margen) → Precio de venta USD/kg
+Costo total/kg → + Comisión/kg → × (1 + margen) → Precio de venta/kg
 ```
 
 ---
 
-## 1. Normalización de ítems de costo a USD/kg
+## 1. Normalización de ítems de costo a /kg
 
 El proceso tiene dos pasos:
 1. **Calcular el costo en la moneda propia del ítem** (`calcItemCostPerKgRaw`)
-2. **Convertir a USD si el ítem está en ARS** (`calcItemCostPerKg`)
+2. **Convertir a la moneda base si es necesario** (`calcItemCostPerKg`)
 
 ### 1a. Fórmula base (en la moneda del ítem)
 
 Cada ítem tiene tres componentes:
 - **Costo variable** — expresado en alguna de las 5 unidades posibles
-- **Costo fijo por embarque** (`fixed_per_shipment`) — se distribuye entre todos los kg
+- **Costo fijo por embarque/entrega** (`fixed_per_shipment`) — se distribuye entre todos los kg
 - **Costo fijo por cotización** (`fixed_per_quote`) — se distribuye entre todos los kg
 
 ```
@@ -49,7 +53,7 @@ raw_per_kg = variable_per_kg + (fixed_per_shipment × num_shipments + fixed_per_
 - Costo de caja: $15/caja, 10 kg/caja → `var_per_kg = 15 / 10 = 1.50/kg`
 - Flete fijo: $800/embarque, 2 embarques, 10.000 kg → `fixed_per_kg = (800 × 2) / 10.000 = 0.16/kg`
 
-### 1b. Conversión ARS → USD
+### 1b. Conversión ARS → USD (solo en export)
 
 Si el ítem tiene `currency: 'ARS'`, el valor raw (en pesos) se divide por el tipo de cambio:
 
@@ -59,7 +63,10 @@ cost_per_kg_usd = raw_per_kg / usd_ars_rate
 
 Si el tipo de cambio no está ingresado (`usd_ars_rate = 0`), el costo del ítem se trata como 0 y se marca con advertencia visual.
 
-**Regla clave:** `$` siempre es ARS (pesos argentinos) — uso interno únicamente. `USD` es dólares. El precio de venta y todos los documentos para el cliente son siempre en USD.
+**En cotizaciones locales:** la moneda base es ARS. Los ítems en USD se convierten a ARS multiplicando por el tipo de cambio.
+
+**Regla clave export:** `$` siempre es ARS (pesos argentinos) — uso interno. `USD` es dólares. El precio de venta y documentos para el cliente son en USD.
+**Regla clave local:** el precio de venta es en ARS. El TC se usa para referencia interna (equivalente USD en PDF costos).
 
 **Ejemplo:**
 - Mano de obra: ARS $1.750/kg
@@ -70,15 +77,17 @@ Si el tipo de cambio no está ingresado (`usd_ars_rate = 0`), el costo del ítem
 
 ## 2. Ajuste por rendimiento (solo Materia Prima)
 
-La capa **Materia Prima** tiene `applies_yield: true`. El costo por kg (ya en USD) se divide por el rendimiento para expresarlo en términos de kg de producto terminado.
+La capa **Materia Prima** tiene `applies_yield: true`. El costo por kg (ya en la moneda base) se divide por el rendimiento para expresarlo en términos de kg de producto terminado.
 
 ```
-cost_adjusted = cost_per_kg_usd / (yield_pct / 100)
+cost_adjusted = cost_per_kg / (yield_pct / 100)
 ```
 
 **Por qué:** Si el rendimiento es 50%, se necesitan 2 kg de pescado en pie para producir 1 kg de filete. El costo efectivo de la materia prima por kg terminado es el doble.
 
-**Ejemplo con ítem en ARS:**
+**Auto-fill del rendimiento:** Al seleccionar un producto, el sistema carga automáticamente el `default_yield_pct` del producto en la capa Proceso en Planta (si no hay un valor ya definido).
+
+**Ejemplo con ítem en ARS (export):**
 - Pescado en pie: ARS $5.075/kg
 - TC: 1.450 ARS/USD → $3.50 USD/kg
 - Rendimiento 50% → ajustado: `3.50 / 0.50 = $7.00/kg USD`
@@ -87,17 +96,32 @@ Todas las demás capas no aplican ajuste de rendimiento.
 
 ---
 
-## 3. Total de costos
+## 3. Advertencia de desvío de rendimiento
+
+El motor compara el rendimiento efectivo (definido en la capa Proceso en Planta) con el rendimiento estándar del producto (`default_yield_pct`).
+
+```
+deviation_pct = |actual - expected| / expected × 100
+```
+
+Si `deviation_pct > 10%`, se muestra un warning visual naranja:
+> ⚠ Rdto 40.0% difiere 20% del standard (50%)
+
+Esto aplica tanto a export como a local. El warning aparece incluso si el rendimiento es 0 (caso más extremo: 100% de desvío).
+
+---
+
+## 4. Total de costos
 
 ```
 total_cost_per_kg = Σ (cost_adjusted de cada ítem en cada capa)
 ```
 
-Todos los valores están en USD/kg en este punto, independientemente de si el ítem original era ARS o USD.
+Todos los valores están en la moneda base (USD/kg para export, ARS/kg para local) en este punto.
 
 ---
 
-## 4. Comisión comercial
+## 5. Comisión comercial
 
 La comisión tiene dos partes:
 - **Porcentaje** sobre costo o sobre precio de venta
@@ -139,7 +163,9 @@ comm_per_kg = price_per_kg × (comm_pct / 100) + comm_fixed_per_kg
 
 ---
 
-## 5. Precio de venta
+## 6. Precio de venta
+
+### Export
 
 ```
 price_per_kg  = (total_cost + comm_per_kg) × (1 + margin_pct / 100)   [modo cost]
@@ -150,11 +176,40 @@ price_per_lb  = price_per_kg / 2.20462
 
 Factor de conversión exacto: **1 kg = 2.20462 lb**.
 
+### Local
+
+```
+price_ars_per_kg = (total_cost_ars + comm_ars_per_kg) × (1 + margin_pct / 100)
+```
+
+No se convierte a libras. El equivalente USD de referencia se calcula en el PDF costos:
+```
+equiv_usd = price_ars_per_kg / usd_ars_rate
+```
+
 ---
 
-## 6. Back-cálculo desde precio objetivo
+## 7. Margen en valor absoluto
 
-Si el usuario ingresa un **precio objetivo** (USD/kg), el sistema calcula el margen necesario.
+El PDF costos muestra el margen no solo en porcentaje sino también en valor absoluto:
+
+### Export
+```
+margin_abs = price_per_kg - total_cost_per_kg - comm_per_kg
+→ se muestra como "USD $X.XX/kg"
+```
+
+### Local
+```
+margin_abs = price_ars_per_kg - total_cost_ars_per_kg - comm_ars_per_kg
+→ se muestra como "ARS $X.XXX/kg"
+```
+
+---
+
+## 8. Back-cálculo desde precio objetivo
+
+Si el usuario ingresa un **precio objetivo** (/kg), el sistema calcula el margen necesario.
 
 ### Modo comisión sobre costo:
 ```
@@ -171,7 +226,9 @@ new_margin = (target_price × (1 - comm_pct / 100) / base - 1) × 100
 
 ---
 
-## 7. Validación de tipo de cambio
+## 9. Validación de tipo de cambio
+
+### En export
 
 Si algún ítem de costo tiene `currency: 'ARS'`:
 
@@ -185,9 +242,13 @@ Cuando el TC está ingresado:
 - El resumen muestra `💱 TC ARS/USD — $X.XXX/USD`
 - El PDF interno incluye el TC en el breakdown de costos
 
+### En local
+
+El TC es de referencia para el equivalente USD en el PDF costos. No bloquea la confirmación.
+
 ---
 
-## 8. Esquema completo de un cálculo con moneda mixta
+## 10. Esquema completo de un cálculo con moneda mixta (export)
 
 ```
 INPUTS:
@@ -209,6 +270,9 @@ CAPA: Proceso en Planta (applies_yield = false)
   ítem "Energía planta" [USD]:   $0.20/kg
     → cost_usd = 0.20/kg
     → sub-total = $1.40/kg
+
+  ⚠ Yield warning: 50% = standard → OK (no warning)
+  Si fuera 40%: "⚠ Rdto 40.0% difiere 20% del standard (50%)"
 
 CAPA: Materiales y Embalaje
   ítem "Cajas" [USD]:   $15/caja, 10 kg/caja → $1.50/kg
@@ -235,12 +299,13 @@ COMISIÓN: 5% sobre costo
 MARGEN: 20%
   cost_with_comm = 10.78 + 0.539 = 11.319
   price          = 11.319 × 1.20 = $13.58/kg USD
+  margin_abs     = 13.58 - 11.319 = $2.26/kg USD
   price_lb       = 13.58 / 2.20462 = $6.16/lb
 ```
 
 ---
 
-## 9. Resumen de las funciones clave
+## 11. Resumen de las funciones clave
 
 ```javascript
 // Paso 1: costo en la moneda propia del ítem
@@ -257,7 +322,7 @@ function calcItemCostPerKgRaw(item, volumeKg, numShipments) {
   return varPerKg + fixedPerKg;
 }
 
-// Paso 2: conversión a USD (si el ítem es ARS)
+// Paso 2: conversión a moneda base (si es necesario)
 function calcItemCostPerKg(item, volumeKg, numShipments, usdArsRate) {
   const raw = calcItemCostPerKgRaw(item, volumeKg, numShipments);
   if (item.currency === 'ARS') return usdArsRate > 0 ? raw / usdArsRate : 0;
@@ -265,7 +330,7 @@ function calcItemCostPerKg(item, volumeKg, numShipments, usdArsRate) {
 }
 
 // Ajuste rendimiento (solo Materia Prima)
-adjusted = costUsd / yieldPct;    // yieldPct como decimal: 50% → 0.50
+adjusted = costPerKg / yieldPct;    // yieldPct como decimal: 50% → 0.50
 
 // Comisión sobre costo
 comm_per_kg = totalCost * (comm_pct/100) + commFixedPerKg;
@@ -274,20 +339,24 @@ price = (totalCost + comm_per_kg) * (1 + marginPct);
 // Comisión sobre precio (álgebra inversa)
 price = (totalCost + commFixedPerKg) * (1 + marginPct) / (1 - comm_pct/100);
 
-// Conversión a libras
+// Conversión a libras (solo export)
 price_per_lb = price_per_kg / 2.20462;
+
+// Margen en $ absoluto
+margin_abs = price_per_kg - totalCost - comm_per_kg;
 ```
 
 ---
 
-## 10. Condiciones de borde
+## 12. Condiciones de borde
 
 | Situación | Comportamiento |
 |---|---|
 | `volume_kg = 0` | `fixed_per_kg = 0` para evitar división por cero |
-| `yield_pct = 0` | No se aplica ajuste (divisor forzado a 1) |
-| `usd_ars_rate = 0` con ítems ARS | Ítem contribuye $0 al costo; se muestra advertencia `⚠ sin TC` |
+| `yield_pct = 0` | No se aplica ajuste (divisor forzado a 1). Yield warning muestra desvío 100% |
+| `usd_ars_rate = 0` con ítems ARS (export) | Ítem contribuye $0 al costo; se muestra advertencia `⚠ sin TC` |
 | `comm_pct = 100%` en modo precio | División por cero; precio indeterminado |
 | Precio objetivo ≤ costo | Margen resultante negativo; se clampea a 0% |
 | `price_per_kg = 0` | Botones "Confirmar", "PDF Cliente" y "PDF Costos" deshabilitados |
-| Ítems ARS sin TC al confirmar | Bloqueado: toast de error, foco en campo de TC |
+| Ítems ARS sin TC al confirmar (export) | Bloqueado: toast de error, foco en campo de TC |
+| Rendimiento difiere >10% del standard | Warning visual naranja (no bloquea operación) |

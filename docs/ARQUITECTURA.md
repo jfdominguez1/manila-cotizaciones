@@ -1,30 +1,31 @@
 # Arquitectura y Diseño Funcional — Cotizaciones Manila
 
 > Documento técnico de la aplicación interna de cotizaciones de Manila S.A.
-> v1.8 — Stack: Firebase + HTML/CSS/JS vanilla + GitHub Pages
+> v2.0 — Stack: Firebase + HTML/CSS/JS vanilla + GitHub Pages
 
 ---
 
 ## 1. Vista general
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      GitHub Pages (CDN)                         │
-│  index.html · quote.html · history.html · admin.html · login.html │
-│  css/style.css · js/*.js · img/                                 │
-└─────────────────────────────┬───────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                        GitHub Pages (CDN)                            │
+│  index.html · quote.html · quote-local.html · history.html           │
+│  history-local.html · admin.html · login.html                        │
+│  css/style.css · js/*.js · img/                                      │
+└─────────────────────────────┬───────────────────────────────────────┘
                               │ HTTPS
               ┌───────────────▼───────────────┐
               │        Firebase (Google)        │
-              │  ┌─────────────┐  ┌──────────┐ │
-              │  │  Firestore  │  │   Auth   │ │
-              │  │  (NoSQL DB) │  │ (email/  │ │
-              │  │             │  │  pass)   │ │
-              │  └─────────────┘  └──────────┘ │
+              │  ┌─────────┐ ┌──────┐ ┌──────┐│
+              │  │Firestore│ │ Auth │ │Storag││
+              │  │(NoSQL)  │ │(email│ │(fotos││
+              │  │         │ │/pass)│ │)     ││
+              │  └─────────┘ └──────┘ └──────┘│
               └───────────────────────────────┘
 ```
 
-Sin servidor propio. Toda la lógica corre en el navegador del usuario. Firebase provee autenticación y base de datos en tiempo real.
+Sin servidor propio. Toda la lógica corre en el navegador del usuario. Firebase provee autenticación, base de datos en tiempo real y almacenamiento de fotos.
 
 ---
 
@@ -35,9 +36,10 @@ Sin servidor propio. Toda la lógica corre en el navegador del usuario. Firebase
 | Frontend | HTML5 + CSS3 + JS ES Modules | Sin build step, fácil de mantener |
 | Base de datos | Firestore (Firebase) | NoSQL, tiempo real, sin servidor |
 | Autenticación | Firebase Auth (email/password) | Simple, seguro, integrado |
+| Almacenamiento | Firebase Storage | Fotos de productos (upload desde admin y cotizador) |
 | PDF | `window.print()` + `@media print` CSS | Sin dependencias externas |
 | Deploy | GitHub Pages (branch `gh-pages`) | Gratuito, CD automático vía git push |
-| Imágenes | Archivos estáticos en `/img/` | Cargados con el sitio, sin Storage |
+| Imágenes estáticas | Archivos en `/img/` | Logos, certificaciones, assets fijos |
 
 **Firebase project:** `cotizaciones-manila`
 **Configuración:** `js/firebase.js`
@@ -48,10 +50,12 @@ Sin servidor propio. Toda la lógica corre en el navegador del usuario. Firebase
 
 ```
 cotizaciones/
-├── index.html          Dashboard con últimas cotizaciones y stats
-├── quote.html          Constructor de cotizaciones (módulo principal)
-├── history.html        Historial y consulta
-├── admin.html          Catálogo de productos + tablas de costos
+├── index.html          Dashboard con últimas cotizaciones (export + local) y stats
+├── quote.html          Constructor de cotizaciones export
+├── quote-local.html    Constructor de cotizaciones mercado interno
+├── history.html        Historial export
+├── history-local.html  Historial local
+├── admin.html          Catálogo de productos (export + local) + tablas de costos
 ├── login.html          Pantalla de autenticación
 ├── seed.html           Carga de datos de ejemplo (herramienta de desarrollo)
 │
@@ -59,24 +63,27 @@ cotizaciones/
 │   └── style.css       Todos los estilos: UI + @media print (PDF)
 │
 ├── js/
-│   ├── firebase.js     Inicialización Firebase (app, db, auth)
+│   ├── firebase.js     Inicialización Firebase (app, db, auth, storage)
 │   ├── auth.js         Helpers de autenticación (requireAuth, logout)
-│   ├── config.js       Constantes de dominio: BRANDS, COST_LAYERS, INCOTERMS, CERTIFICATIONS
-│   ├── quote.js        Motor de cotización (cálculo, UI, PDF, save)
-│   ├── history.js      Historial: carga, filtros, modal detalle
-│   └── admin.js        CRUD de productos y tablas de costos
+│   ├── config.js       Constantes de dominio: BRANDS, COST_LAYERS, INCOTERMS, etc.
+│   ├── quote.js        Motor de cotización export (cálculo, UI, PDF, save)
+│   ├── quote-local.js  Motor de cotización local (cálculo ARS, UI, PDF, save)
+│   ├── history.js      Historial export: carga, filtros, modal detalle
+│   ├── history-local.js Historial local: carga, filtros, modal detalle
+│   └── admin.js        CRUD de productos (export + local) y tablas de costos
 │
 ├── img/
 │   ├── logo-manila.png
 │   ├── logo-patagonia-isologo.png
 │   ├── logo-andes.png
 │   ├── bap-logo.avif
-│   ├── fillet-white.jpg        (y demás fotos de productos)
 │   └── ...
 │
 └── docs/
     ├── GUIA-USUARIO.md
     ├── MODELO-CALCULOS.md
+    ├── MODELO-PRECIOS.md
+    ├── SPEC-MERCADO-INTERNO.md
     └── ARQUITECTURA.md         ← este archivo
 ```
 
@@ -85,11 +92,12 @@ cotizaciones/
 ## 4. Módulos JavaScript
 
 ### `firebase.js`
-Punto de entrada de Firebase. Exporta `db` (Firestore) y `auth` (Firebase Auth). Todos los demás módulos importan desde acá.
+Punto de entrada de Firebase. Exporta `db` (Firestore), `auth` (Firebase Auth) y `storage` (Firebase Storage). Todos los demás módulos importan desde acá.
 
 ```
 firebaseConfig → initializeApp() → getFirestore() → export db
                                  → getAuth()      → export auth
+                                 → getStorage()   → export storage
 ```
 
 ---
@@ -115,20 +123,24 @@ Define las constantes de dominio del negocio. No tiene lógica, solo datos. Expo
 | `BRANDS` | `{manila, patagonia, andes}` — nombre, logo, colores accent |
 | `CERTIFICATIONS` | `{bap, oie, ecocert}` — nombre, descripción, logo |
 | `INCOTERMS` | Array de 6 incoterms con id, nombre y descripción |
-| `COST_LAYERS` | 6 capas de costo con `id`, `name`, `applies_yield` |
+| `COST_LAYERS` | 6 capas de costo export con `id`, `name`, `applies_yield` |
+| `LOCAL_COST_LAYERS` | 5 capas de costo local (sin export/aduana) |
 | `COST_UNITS` | 6 unidades de costo con `id`, `label` (`/kg`, `/unidad`, etc.), `needs_unit_kg` |
+| `DELIVERY_TERMS` | 6 condiciones de entrega local con `coverage` |
+| `PAYMENT_TERMS` | 8+ condiciones de pago local |
+| `TRANSPORT_TYPES` | 4 tipos de transporte local |
 | `CONTACT` | Datos de la empresa para footer del PDF |
 
 ---
 
-### `quote.js` — Motor principal
+### `quote.js` — Motor de cotización export
 
-Es el módulo más complejo. Gestiona todo el ciclo de vida de una cotización.
+Es el módulo más complejo. Gestiona todo el ciclo de vida de una cotización de exportación.
 
 **Estado global del módulo:**
 ```
 currentUser       Usuario autenticado
-products[]        Catálogo cargado de Firestore
+products[]        Catálogo cargado de Firestore (colección 'products')
 costTables[]      Tablas de referencia de Firestore
 currentBrand      Marca activa ('manila' | 'patagonia' | 'andes')
 currentProduct    Objeto producto seleccionado
@@ -137,6 +149,7 @@ currentQuoteNumber  Número legible (COT-AAAA-NNN)
 isDraft           Boolean
 layers[]          Estado local de las capas de costo
 commission{}      Estado local de la comisión
+selectedQuotePhoto  URL de la foto elegida para el PDF (null = usar photo principal)
 ```
 
 **Flujo de inicialización:**
@@ -144,6 +157,7 @@ commission{}      Estado local de la comisión
 init()
   ├── requireAuth()
   ├── loadProducts() → Firestore 'products'
+  │     └── Selector muestra nombre + calibre (ej: "Fresh Fillet — 4-6 oz, 6-8 oz")
   ├── loadCostTables() → Firestore 'cost_tables'
   ├── populateIncoterms()
   ├── renderLayers()
@@ -154,6 +168,28 @@ init()
        ├── ?copy=ID  → loadCopy() → assignQuoteNumber() + populateFromData()
        └── (nuevo)   → assignQuoteNumber()
 ```
+
+**Al seleccionar un producto (`onProductChange`):**
+1. Carga datos del producto
+2. Auto-completa el rendimiento estándar (`default_yield_pct`) en la capa Proceso
+3. Renderiza la galería de fotos (`renderQuotePhotoGallery`)
+4. Actualiza thumbnail del producto
+
+**Galería de fotos del producto:**
+- Combina `product.photo` + `product.available_photos` (con deduplicación)
+- Muestra thumbnails clickeables para elegir la foto del PDF
+- Incluye botón ＋ para subir foto nueva a Firebase Storage
+- La foto seleccionada se guarda en el snapshot del producto al guardar/confirmar
+
+**Table picker (ítems de tabla de costos):**
+- Al elegir fuente "Tabla", muestra un `<select>` con ítems filtrados por capa
+- Incluye placeholder "— Elegir ítem de tabla —" para forzar selección explícita
+- Al seleccionar: sobreescribe nombre, moneda y todos los valores del ítem
+
+**Yield warning (advertencia de rendimiento):**
+- Compara el rendimiento efectivo (de la capa Proceso) con `product.default_yield_pct`
+- Si el desvío relativo > 10%, muestra aviso naranja: "⚠ Rdto X% difiere Y% del standard (Z%)"
+- Se recalcula en cada ciclo de `recalculate()`
 
 **Numeración automática:**
 - `assignQuoteNumber()` usa una **transacción atómica** de Firestore sobre el documento `metadata/counters`
@@ -182,6 +218,8 @@ Para cada capa → para cada ítem:
   si item.currency === 'ARS': muestra "ARS $X/kg → $Y/kg" (o "⚠ sin TC")
   acumular en layerTotal
   ↓
+Yield warning: comparar yieldPct efectivo vs default del producto → mostrar/ocultar aviso
+  ↓
 totalCostPerKg = Σ layerTotals
   ↓
 commFixedPerKg = fijos de comisión prorrateados
@@ -198,43 +236,71 @@ pricePerLb = price / 2.20462
 Actualiza DOM: totales por capa, comm total, resumen (con nota TC), precio highlight
 ```
 
+**Checklist de completitud:**
+Valida que estén completos: Cliente, Producto, Incoterm, al menos un ítem de costo con valor > 0. El checklist se muestra en la parte superior del panel izquierdo.
+
 **Guardar (`buildQuoteObject`):**
 Genera el objeto snapshot completo para Firestore. Incluye:
 - Todos los metadatos (cliente, marca, incoterm, volumen, `usd_ars_rate`, etc.)
-- Snapshot completo del producto (copia inmutable)
+- Snapshot completo del producto (copia inmutable, con la foto seleccionada)
 - Snapshot completo de cada capa con todos sus ítems, `currency` y `cost_per_kg_calc`
 - Estado de la comisión
 - Resultados calculados (`total_cost_per_kg`, `price_per_kg`, `price_per_lb`)
 
 **PDF (`printQuote(mode)`):**
 - Puebla los elementos del DOM oculto `.pdf-container` con los datos actuales
+- **PDF Cliente**: foto del producto, nombre + specs (presentación, especie, corte, calibre), precio en USD/kg y USD/lb, certificaciones, condiciones
+- **PDF Costos**: tabla de costos por capa con moneda, tipo de cambio, margen en % y en $ (USD/kg), más copia de la hoja del cliente
 - Agrega clase `print-client` o `print-internal` al `<body>`
 - El CSS `@media print` muestra/oculta páginas según la clase del body
 - Llama a `window.print()`
-- El navegador abre el diálogo de impresión/guardar PDF
 
 ---
 
-### `history.js`
+### `quote-local.js` — Motor de cotización local
 
-Carga todas las cotizaciones de Firestore, las muestra en tabla y gestiona el modal de detalle.
+Paralelo a `quote.js` pero adaptado para mercado interno argentino.
+
+**Diferencias clave respecto a export:**
+- Moneda principal: **ARS** (pesos argentinos)
+- Numeración: `LOC-YYYY-NNN` (contador atómico separado: `local_quote_next`)
+- Capas: 5 capas locales (sin costos de exportación/aduana)
+- Condición de entrega: `DELIVERY_TERMS` (6 opciones locales)
+- Condiciones de pago: `PAYMENT_TERMS` (8+ opciones)
+- Productos: colección `products-local` de Firestore
+- Tipo de cambio: para referencia interna (equivalente USD en PDF costos)
+- Brand switcher: 3 marcas con logo y accent dinámico en PDF
+
+**PDF Cliente local:** logo de marca, foto del producto, nombre + specs (presentación, especie, conservación, vida útil, unidad de venta, etiqueta de marca), precio en ARS/kg, "Precios no incluyen IVA", condiciones de pago.
+
+**PDF Costos local:** tabla de costos por capa, equivalente USD, margen en % y en $ (ARS/kg).
+
+**Features compartidas con export:** galería de fotos con upload, yield warning, auto-fill yield, table picker, checklist.
+
+---
+
+### `history.js` / `history-local.js`
+
+Cargan las cotizaciones de Firestore, las muestran en tabla y gestionan el modal de detalle.
 
 **Flujo:**
 ```
 init()
   ├── requireAuth()
-  └── loadQuotes() → Firestore 'quotes' ORDER BY created_at DESC
+  └── loadQuotes() → Firestore 'quotes'/'quotes-local' ORDER BY created_at DESC
         ├── poblar select de usuarios (únicos)
         └── renderTable(allQuotes)
 
 Filtros: text inputs + selects → getFiltered() → renderTable()
 
 Click en fila → openDetail(quote)
-  └── buildDetailHTML() → muestra snapshot completo con costos
+  └── buildDetailHTML() → muestra snapshot completo con costos y detalles del producto
+        │    (presentación, especie, corte, calibre, conservación, etiqueta)
         └── Botones:
-            ├── "Usar como modelo" → quote.html?copy={id}
-            ├── "PDF Cliente"      → quote.html?draft={id}&print=client
-            ├── "PDF Costos"       → quote.html?draft={id}&print=internal
+            ├── "Usar como modelo" → quote(-local).html?copy={id}
+            ├── "PDF Cliente"      → quote(-local).html?draft={id}&print=client
+            ├── "PDF Costos"       → quote(-local).html?draft={id}&print=internal
+            ├── "Editar borrador"  → solo borradores
             └── "Eliminar"         → solo borradores → deleteDoc()
 ```
 
@@ -242,21 +308,26 @@ Click en fila → openDetail(quote)
 
 ### `admin.js`
 
-CRUD de dos colecciones: `products` y `cost_tables`.
+CRUD de tres colecciones: `products`, `products-local` y `cost_tables`. Admin tiene 3 tabs.
 
-**Productos:**
-- Formulario colapsable con photo picker
-- Photo picker: galería de imágenes estáticas de `/img/`
-- Al guardar: `setDoc()` con ID derivado del nombre (o el existente si es edición)
-- Especie default pre-cargada: `"Rainbow Trout (Oncorhynchus mykiss)"`
-- Sugerencias de descripción en inglés: genera 5 chips combinando nombre, presentación, especie, corte, calibre y certificaciones del formulario; click en chip inserta el texto en el campo de notas
+**Productos Export:**
+- Formulario colapsable con campos: nombre, presentación, especie, corte, calibre (obligatorio), rendimiento, certificaciones, notas
+- **Calibre obligatorio**: al menos un rango desde-hasta
+- Photo picker: galería de fotos subidas a Firebase Storage (`available_photos[]`)
+- Al guardar: `setDoc()` con ID derivado del nombre
+- El selector de productos muestra `nombre — calibre` para fácil identificación
+- Sugerencias de descripción en inglés: genera 5 chips combinando datos del formulario
+
+**Productos Local:**
+- Misma estructura pero para mercado interno: nombre en español, conservación (refrig/cong), días duración (auto según conservación), etiqueta de marca, unidad de venta
+- **Calibre obligatorio**: texto libre
 
 **Tablas de costos:**
-- Misma estructura CRUD
-- Campo **Moneda** (USD / ARS $) — se guarda en el documento y se muestra con badge de color (azul USD, amarillo ARS $) en la lista
-- Al traer un ítem de tabla a una cotización, la moneda se copia automáticamente
-- ID: nombre-normalizado + timestamp (para evitar colisiones)
-- Toggle del campo `kg/unidad` según la unidad seleccionada
+- CRUD con campos: nombre, capa, moneda (USD/ARS), valor, unidad, fijos, notas
+- **Vista en tabla agrupada** por capa con headers colapsables (click para expandir/contraer)
+- **Fecha de última actualización** (`updated_at`) en cada ítem
+- **Exportar CSV**: botón para descargar toda la tabla en formato CSV (compatible con Excel)
+- Al traer un ítem de tabla a una cotización, se copian nombre, moneda, valores y notas automáticamente
 
 ---
 
@@ -275,9 +346,36 @@ CRUD de dos colecciones: `products` y `cost_tables`.
     "caliber": "4-6 oz, 6-8 oz, 8-10 oz"
   },
   "default_yield_pct": 50,
-  "photo": "img/fillet-white.jpg",
+  "photo": "https://firebasestorage.googleapis.com/...",
+  "available_photos": ["url1", "url2", "..."],
   "certifications": ["bap", "oie", "ecocert"],
   "notes": "Premium Patagonian fillet...",
+  "order": 0
+}
+```
+
+> `photo` es la foto principal. `available_photos` es el array completo de fotos subidas a Storage. El cotizador muestra todas y permite elegir cuál usar para cada cotización.
+
+### Colección `products-local`
+
+```json
+{
+  "id": "filet-trucha-refrig",
+  "name": "Filet de trucha",
+  "presentation": "Filet",
+  "specs": {
+    "species": "Trucha Arcoíris",
+    "trim_cut": "Con piel, sin espinas",
+    "caliber": "200-400 g, 400-600 g"
+  },
+  "default_yield_pct": 50,
+  "photo": "https://firebasestorage.googleapis.com/...",
+  "available_photos": ["url1", "url2"],
+  "conservation": "refrigerado",
+  "shelf_life_days": 15,
+  "sale_unit": "kg",
+  "label_brand": "manila",
+  "notes": "Filet premium de Patagonia...",
   "order": 0
 }
 ```
@@ -295,11 +393,13 @@ CRUD de dos colecciones: `products` y `cost_tables`.
   "variable_unit_kg": null,
   "fixed_per_shipment": 800,
   "fixed_per_quote": 0,
-  "notes": "Transporte frigorífico Bariloche → Buenos Aires"
+  "notes": "Transporte frigorífico Bariloche → Buenos Aires",
+  "updated_at": "2026-02-20T12:00:00.000Z"
 }
 ```
 
-> `currency`: `"USD"` (default) o `"ARS"`. Los ítems ARS nunca aparecen en documentos para el cliente; se convierten a USD usando el tipo de cambio del formulario.
+> `currency`: `"USD"` (default) o `"ARS"`. Los ítems ARS se convierten a USD usando el tipo de cambio.
+> `updated_at`: timestamp ISO de la última modificación. Se muestra en la vista de admin.
 
 ### Colección `quotes`
 
@@ -331,7 +431,7 @@ CRUD de dos colecciones: `products` y `cost_tables`.
   "notes": "Cliente muy interesado, negociación directa",
   "selected_certs": ["bap", "oie"],
 
-  "product": { "...snapshot completo del catálogo al momento de crear..." },
+  "product": { "...snapshot completo del catálogo al momento de crear (con foto elegida)..." },
 
   "cost_layers": [
     {
@@ -370,10 +470,23 @@ CRUD de dos colecciones: `products` y `cost_tables`.
 }
 ```
 
+### Colección `quotes-local`
+
+Misma estructura que `quotes` pero con campos locales:
+- `quote_number`: `LOC-YYYY-NNN`
+- `delivery_term` en lugar de `incoterm`
+- `payment_terms` (condiciones de pago)
+- `transport_type` (local)
+- Precio en ARS/kg en lugar de USD/kg y USD/lb
+- Producto de la colección `products-local`
+
 ### Documento `metadata/counters`
 
 ```json
-{ "quote_next": 12 }
+{
+  "quote_next": 12,
+  "local_quote_next": 5
+}
 ```
 
 ---
@@ -382,7 +495,7 @@ CRUD de dos colecciones: `products` y `cost_tables`.
 
 Los PDFs se generan con `window.print()`, sin librerías externas.
 
-**Estructura del DOM:**
+**Estructura del DOM (export):**
 
 ```
 <body>
@@ -400,6 +513,29 @@ Los PDFs se generan con `window.print()`, sin librerías externas.
 | `print-client` | Oculta | Visible |
 | `print-internal` | Visible | Visible |
 
+**Contenido del PDF Cliente (export):**
+- Logo de marca (Manila/Patagonia/Andes)
+- Foto del producto (la elegida en el photo picker)
+- Nombre del producto + specs: presentación, especie, corte, calibre
+- Notas del producto (descripción en inglés)
+- Datos del pedido: cliente, destino, incoterm, volumen, embarques, validez
+- Certificaciones seleccionadas (BAP, OIE, Ecocert)
+- Precio en USD/kg y USD/lb
+
+**Contenido del PDF Cliente (local):**
+- Logo de marca con accent color dinámico
+- Foto del producto
+- Nombre + specs: presentación, especie, conservación, vida útil, unidad de venta, etiqueta de marca
+- Datos del pedido: cliente, ciudad, entrega, transporte, volumen, plazo
+- Condiciones de pago
+- Precio en ARS/kg + "Precios no incluyen IVA"
+
+**Contenido del PDF Costos (ambos):**
+- Tabla de costos por capa con concepto, fuente, valor, fijos, costo/kg
+- Resumen: costo total, margen en % y en $ (USD/kg para export, ARS/kg para local), precio final
+- En local: equivalente USD del precio final (usando TC)
+- Tipo de cambio utilizado
+
 **CSS `@media print`:**
 - Cada `.pdf-page` tiene `page-break-after: always`
 - Fuerza tamaño A4, márgenes controlados
@@ -408,15 +544,17 @@ Los PDFs se generan con `window.print()`, sin librerías externas.
 **Flujo de impresión desde Historial:**
 ```
 Botón "PDF Cliente" en modal detalle
-  → redirige a: quote.html?draft={id}&print=client
-  → quote.js carga el draft de Firestore (loadDraft)
+  → redirige a: quote(-local).html?draft={id}&print=client
+  → quote(-local).js carga el draft de Firestore (loadDraft)
   → populateFromData() reconstruye todo el estado
   → setTimeout 300ms → printQuote('client')
 ```
 
 ---
 
-## 7. Flujo de URL params en `quote.html`
+## 7. Flujo de URL params
+
+### `quote.html`
 
 | Param | Valor | Comportamiento |
 |---|---|---|
@@ -425,6 +563,10 @@ Botón "PDF Cliente" en modal detalle
 | `?copy=ID` | ID de Firestore | Carga el documento, asigna número nuevo (duplicado) |
 | `?draft=ID&print=client` | — | Carga draft y lanza `printQuote('client')` automáticamente |
 | `?draft=ID&print=internal` | — | Carga draft y lanza `printQuote('internal')` automáticamente |
+
+### `quote-local.html`
+
+Mismos params pero usa colección `quotes-local` y numeración `LOC-YYYY-NNN`.
 
 ---
 
@@ -454,7 +596,7 @@ service cloud.firestore {
 ```bash
 # Actualizar aplicación
 git add -A
-git commit -m "descripción del cambio"
+git commit -m "descripción del cambio vX.Y.Z"
 git push origin main && git push origin main:gh-pages -f
 ```
 
@@ -462,7 +604,9 @@ git push origin main && git push origin main:gh-pages -f
 - `gh-pages` → lo que sirve GitHub Pages
 - Demora 1-2 minutos en propagarse. Ctrl+Shift+R para forzar recarga en el navegador.
 
-**Cache-busting:** Los scripts tienen versión en el query string (`?v=15`). Al actualizar un JS, incrementar el número en el `<script src>` correspondiente del HTML.
+**Cache-busting:** Los scripts y CSS tienen versión en el query string (`?v=15`). Al actualizar un JS o CSS, incrementar el número en el `<script src>` o `<link href>` correspondiente del HTML.
+
+**Versionado:** Cada deploy incrementa la versión semver (v2.3.1, v2.3.2...) que se muestra en `<span class="nav-version">` de todos los HTML.
 
 ---
 
@@ -472,35 +616,37 @@ git push origin main && git push origin main:gh-pages -f
 Usuario → login.html → Firebase Auth → OK
                                       ↓
                               Dashboard (index.html)
-                                   ↙    ↓    ↘
-                        quote.html  history  admin.html
-                             ↓
-                     Nueva cotización
-                             ↓
-              ┌──── Selecciona producto ─────┐
-              │    (carga yield default)     │
-              ↓                             ↓
-        Datos cliente           Agrega ítems por capa
-              │                      ↓
-              └────────────── recalculate() ──────────────┐
-                                     ↓                    │
-                         Precio en tiempo real            │
-                                     ↓                    │
-                         Ajusta margen / precio objetivo   │
-                                     ↓                    │
-                    ┌────────────────────────────────┐    │
-                    │  Guardar borrador              │    │
-                    │  → setDoc(draft)               │    │
-                    │                                │    │
-                    │  Confirmar                     │    │
-                    │  → setDoc(confirmed)           │    │
-                    │  → número COT definitivo       │    │
-                    │                                │    │
-                    │  PDF Cliente / PDF Costos      │────┘
-                    │  → printQuote(mode)            │
-                    │  → window.print()              │
-                    └────────────────────────────────┘
-                                     ↓
-                          history.html → snapshot
-                          permanente en Firestore
+                              [Export + Local stats]
+                                ↙     ↓     ↘
+                 quote.html  history  admin.html  quote-local.html  history-local
+                      ↓                  ↓              ↓
+               Nueva export        3 tabs:         Nueva local
+                      ↓           Export/Local/     ↓
+       ┌── Selecciona producto    Costos     Selecciona producto ──┐
+       │   (calibre en nombre)                (calibre en nombre)  │
+       │   (auto-fill yield)                  (auto-fill yield)    │
+       ↓                                                           ↓
+  Galería fotos                                               Galería fotos
+  (elegir/subir)                                              (elegir/subir)
+       ↓                                                           ↓
+  Datos cliente               Agregar ítems por capa          Datos cliente
+  Incoterm, envío             (manual o desde tabla)          Entrega, pago
+       │                             ↓                             │
+       └───────────── recalculate() ──────────────┐               │
+                            ↓                      │               │
+              Precio en tiempo real                │               │
+              Yield warning (si desvío >10%)       │               │
+                            ↓                      │               │
+              Ajusta margen / precio objetivo       │               │
+                            ↓                      │               │
+           ┌────────────────────────────────┐      │               │
+           │  Guardar borrador              │      │               │
+           │  Confirmar (COT/LOC definitivo)│──────┘               │
+           │  PDF Cliente / PDF Costos      │──────────────────────┘
+           └────────────────────────────────┘
+                            ↓
+                 history(-local).html → snapshot
+                 permanente en Firestore
+                 → modal detalle con producto specs
+                 → Usar como modelo / reimprimir PDF
 ```
