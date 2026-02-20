@@ -1663,7 +1663,7 @@ label.rate-warning-label {
   border: 2px solid #fff;
   font-size: 8px;
   cursor: pointer;
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
@@ -1671,8 +1671,10 @@ label.rate-warning-label {
   font-family: var(--font);
   font-weight: 700;
   z-index: 2;
+  opacity: 0;
+  transition: opacity 0.15s;
 }
-.photo-pick-wrapper:hover .photo-pick-del { display: flex; }
+.photo-pick-wrapper:hover .photo-pick-del { opacity: 1; }
 
 .admin-form-actions {
   display: flex;
@@ -1820,6 +1822,7 @@ label.rate-warning-label {
 }
 .caliber-entry .cal-dash { color: var(--gray-400); font-weight: 500; }
 .caliber-entry .cal-unit {
+  width: 58px;
   padding: 4px 6px;
   border: 1px solid var(--gray-300);
   border-radius: 4px;

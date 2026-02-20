@@ -270,27 +270,28 @@ function renderPhotoPicker(currentPhotoSrc) {
     gallery.appendChild(wrapper);
   });
 
-  // Botón subir foto nueva
+  // Botón subir foto nueva — <label> wrapping <input> para máxima compatibilidad cross-browser
+  const uploadLabel = document.createElement('label');
+  uploadLabel.className = 'photo-pick-item photo-pick-upload';
+  uploadLabel.title = 'Subir foto nueva';
+  uploadLabel.style.cursor = 'pointer';
+  uploadLabel.innerHTML = '<span>＋</span>';
+
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
   fileInput.accept = 'image/*';
-  fileInput.style.display = 'none';
-  gallery.appendChild(fileInput);
-
-  const uploadBtn = document.createElement('div');
-  uploadBtn.className = 'photo-pick-item photo-pick-upload';
-  uploadBtn.title = 'Subir foto nueva';
-  uploadBtn.innerHTML = '<span>＋</span>';
-  uploadBtn.addEventListener('click', () => fileInput.click());
-  gallery.appendChild(uploadBtn);
+  fileInput.style.cssText = 'position:absolute;width:0;height:0;opacity:0;overflow:hidden;';
+  uploadLabel.appendChild(fileInput);
+  gallery.appendChild(uploadLabel);
 
   fileInput.addEventListener('change', async () => {
     const file = fileInput.files[0];
     if (!file) return;
-    uploadBtn.classList.add('uploading');
-    uploadBtn.innerHTML = '<span>···</span>';
+    uploadLabel.classList.add('uploading');
+    uploadLabel.querySelector('span').textContent = '···';
     try {
       const blob = await compressImage(file);
+      if (!blob) throw new Error('No se pudo procesar la imagen. Probá con otro archivo.');
       const filename = `product-photos/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
       const storageRef = ref(storage, filename);
       await uploadBytes(storageRef, blob, { contentType: 'image/jpeg' });
@@ -300,8 +301,8 @@ function renderPhotoPicker(currentPhotoSrc) {
     } catch (err) {
       console.error('Upload error:', err);
       alert('Error al subir la foto: ' + err.message);
-      uploadBtn.classList.remove('uploading');
-      uploadBtn.innerHTML = '<span>＋</span>';
+      uploadLabel.classList.remove('uploading');
+      uploadLabel.querySelector('span').textContent = '＋';
     }
   });
 }
