@@ -65,20 +65,6 @@
     <div class="seed-log" id="log-quote">Listo para cargar...</div>
   </div>
 
-  <div class="seed-card" style="border-color:#40543B">
-    <h2>🏭 Procesos en Planta — datos reales (10 ítems)</h2>
-    <p>Tablas de costos de MO por proceso, en ARS. Incluye rendimiento esperado en notas. Los que no tienen precio aún quedan para cargar manualmente cuando se confirme el valor.</p>
-    <button class="btn-primary" id="btn-seed-processes" style="background:#40543B">Cargar procesos reales</button>
-    <div class="seed-log" id="log-processes">Listo para cargar...</div>
-  </div>
-
-  <div class="seed-card" style="border-color:#365A6E">
-    <h2>🐟 Materias Primas — datos reales (8 ítems)</h2>
-    <p>Precios de pescado vivo en USD/kg, por talla y tipo. Capa: Materia Prima.</p>
-    <button class="btn-primary" id="btn-seed-mp" style="background:#365A6E">Cargar materias primas</button>
-    <div class="seed-log" id="log-mp">Listo para cargar...</div>
-  </div>
-
   <div class="seed-card">
     <h2>🗑 Limpiar datos de ejemplo</h2>
     <p>Elimina todos los registros con prefijo EXAM de Firestore.</p>
@@ -486,21 +472,7 @@
     }
   });
 
-  // ============================================================
-  // PROCESOS EN PLANTA — DATOS REALES
-  // MO Servicio en ARS/kg de producto terminado
-  // Rendimiento esperado en notes (se configura por ítem en la cotización)
-  // ============================================================
-  // Nomenclatura:
-  //   Tch = Trucha Chica | Tgr = Trucha Grande
-  //   HON = Entero eviscerado (H&G, Headed & Gutted)
-  //   Trim A = Filet con piel y espinas (mínimo proceso)
-  //   Trim C = Filet con piel, sin espinas dorsales (PBI = Pin Bone In, PBO = Pin Bone Out)
-  //   Trim D = Filet sin piel, sin espinas (máximo proceso)
-  //   BF = Butterfly (mariposa, sin cortar en mitades)
-  //   PAN SIZE = Trucha entera eviscerada porción individual (approx 300-500g)
-  //   Ahumado = proceso completo incluyendo fileteo Trim A + salado + ahumado en caliente/frío
-  //   MO Servicio = Mano de Obra en ARS/kg de producto terminado
+  /* PROCESOS Y MP ya cargados en Firestore — botones eliminados
   const REAL_PROCESSES = [
 
     // ── TRUCHA CHICA ─────────────────────────────────────────────
@@ -680,25 +652,6 @@
     }
   ];
 
-  document.getElementById('btn-seed-processes').addEventListener('click', async () => {
-    document.getElementById('log-processes').textContent = '';
-    for (const p of REAL_PROCESSES) {
-      try {
-        await setDoc(doc(db, 'cost_tables', p.id), p);
-        log('log-processes', `✓ ${p.name} — ARS $${p.variable_value.toLocaleString('es-AR')}/kg`);
-      } catch (e) {
-        log('log-processes', `✗ ${p.name}: ${e.message}`, true);
-      }
-    }
-    log('log-processes', '\n→ Listo. Verificá en Admin → Tablas de costos → Proceso en Planta.');
-  });
-
-  // ============================================================
-  // MATERIAS PRIMAS — DATOS REALES
-  // Precios de pescado vivo en USD/kg por talla
-  // ST = Standard (sin colorante). Tallas según peso vivo de entrada.
-  // Manila Blanco / Manila Color = categoría Manila (selección propia)
-  // ============================================================
   const REAL_MP = [
     {
       id: 'mp-trucha-st-400-600',
@@ -798,18 +751,7 @@
     }
   ];
 
-  document.getElementById('btn-seed-mp').addEventListener('click', async () => {
-    document.getElementById('log-mp').textContent = '';
-    for (const m of REAL_MP) {
-      try {
-        await setDoc(doc(db, 'cost_tables', m.id), m);
-        log('log-mp', `✓ ${m.name} — USD $${m.variable_value.toFixed(2)}/kg`);
-      } catch (e) {
-        log('log-mp', `✗ ${m.name}: ${e.message}`, true);
-      }
-    }
-    log('log-mp', '\n→ Listo. Verificá en Admin → Tablas de costos → Materia Prima.');
-  });
+  */ // fin bloque procesos/MP
 
   // ============================================================
   // LIMPIAR

@@ -15,6 +15,7 @@ let editingProductId = null;
 let editingCostId = null;
 let selectedPhoto = '';
 let caliberEntries = [];  // [{ min, max, unit }]
+let localPhotos = [];    // fotos propias del producto en edición
 
 // Conversión de unidades a gramos
 const CAL_TO_G = { g: 1, kg: 1000, oz: 28.3495, lb: 453.592 };
@@ -231,13 +232,42 @@ function renderPhotoPicker(currentPhotoSrc) {
   noneItem.addEventListener('click', () => renderPhotoPicker(''));
   gallery.appendChild(noneItem);
 
+  // Fotos base globales (compartidas, sin eliminar)
   PRODUCT_PHOTOS.forEach(src => {
     const item = document.createElement('div');
     item.className = 'photo-pick-item' + (src === selectedPhoto ? ' selected' : '');
     item.innerHTML = `<img src="${src}" alt="">`;
-    item.title = src.split('/').pop().replace(/^.*\//, '');
+    item.title = src.split('/').pop();
     item.addEventListener('click', () => renderPhotoPicker(src));
     gallery.appendChild(item);
+  });
+
+  // Fotos propias del producto (con X para eliminar)
+  localPhotos.forEach((src, idx) => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'photo-pick-wrapper';
+
+    const item = document.createElement('div');
+    item.className = 'photo-pick-item' + (src === selectedPhoto ? ' selected' : '');
+    item.innerHTML = `<img src="${src}" alt="">`;
+    item.title = 'Foto del producto';
+    item.addEventListener('click', () => renderPhotoPicker(src));
+
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'photo-pick-del';
+    delBtn.innerHTML = '✕';
+    delBtn.title = 'Eliminar foto';
+    delBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      if (selectedPhoto === src) selectedPhoto = '';
+      localPhotos.splice(idx, 1);
+      renderPhotoPicker(selectedPhoto);
+    });
+
+    wrapper.appendChild(item);
+    wrapper.appendChild(delBtn);
+    gallery.appendChild(wrapper);
   });
 
   // Botón subir foto nueva
@@ -265,7 +295,7 @@ function renderPhotoPicker(currentPhotoSrc) {
       const storageRef = ref(storage, filename);
       await uploadBytes(storageRef, blob, { contentType: 'image/jpeg' });
       const url = await getDownloadURL(storageRef);
-      if (!PRODUCT_PHOTOS.includes(url)) PRODUCT_PHOTOS.push(url);
+      if (!localPhotos.includes(url)) localPhotos.push(url);
       renderPhotoPicker(url);
     } catch (err) {
       console.error('Upload error:', err);
@@ -351,6 +381,7 @@ function openProductForm(productId) {
     // Calibres: restaurar desde array estructurado (nuevo) o dejar vacío (legacy string se descarta)
     caliberEntries = (p.specs?.calibers ?? []).map(e => ({ ...e }));
     document.getElementById('p-yield').value = p.default_yield_pct ?? '';
+    localPhotos = [...(p.available_photos ?? [])];
     renderPhotoPicker(p.photo ?? '');
     document.getElementById('p-order').value = p.order ?? 0;
     document.getElementById('p-notes').value = p.notes ?? '';
@@ -366,6 +397,7 @@ function openProductForm(productId) {
     document.getElementById('p-trim').value = '';
     caliberEntries = [];
     document.getElementById('p-yield').value = '50';
+    localPhotos = [];
     renderPhotoPicker('');
     document.getElementById('p-order').value = products.length;
     document.getElementById('p-notes').value = '';
@@ -381,6 +413,7 @@ function closeProductForm() {
   document.getElementById('product-form-panel').classList.remove('open');
   editingProductId = null;
   caliberEntries = [];
+  localPhotos = [];
 }
 
 async function saveProduct() {
@@ -402,6 +435,7 @@ async function saveProduct() {
     },
     default_yield_pct: parseNum(document.getElementById('p-yield').value) || 50,
     photo: selectedPhoto,
+    available_photos: [...localPhotos],
     order: parseInt(document.getElementById('p-order').value) || 0,
     notes: document.getElementById('p-notes').value.trim(),
     certifications
