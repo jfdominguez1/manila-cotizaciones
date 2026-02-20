@@ -399,6 +399,50 @@ function renderDescriptionSuggestions() {
   });
 }
 
+function generateDescriptionSuggestionsLocal() {
+  const name        = document.getElementById('pl-name').value.trim();
+  const presentation= document.getElementById('pl-presentation').value.trim();
+  const species     = document.getElementById('pl-species').value.trim() || 'Trucha Arcoíris';
+  const trim        = document.getElementById('pl-trim').value.trim();
+  const caliber     = document.getElementById('pl-caliber').value.trim();
+  const conservation= document.getElementById('pl-conservation').value;
+  const labelBrand  = document.getElementById('pl-label-brand').value;
+
+  const pres     = presentation || name || 'Filete';
+  const presLow  = pres.toLowerCase();
+  const speciesShort = species.includes('(') ? species.split('(')[0].trim() : species;
+  const trimStr  = trim ? `, ${trim}` : '';
+  const calStr   = caliber ? ` Calibre: ${caliber}.` : '';
+  const consStr  = conservation === 'refrigerado' ? 'Producto refrigerado.' : conservation === 'congelado' ? 'Producto congelado.' : '';
+  const brandStr = labelBrand ? ` Marca: ${labelBrand}.` : '';
+  const origen   = 'Criada en aguas puras de la Patagonia Argentina.';
+
+  return [
+    `${speciesShort} — ${presLow}${trimStr}.${calStr} ${origen} Sin antibióticos, sin transgénicos.`,
+    `${pres}${trimStr} de ${speciesShort.toLowerCase()}, producida en Río Negro, Patagonia.${calStr} ${consStr}`,
+    `Manila S.A. — ${presLow}${trimStr}. ${species}.${calStr} Acuicultura premium argentina.${brandStr}`,
+    `${pres}${trimStr} de trucha patagónica premium.${calStr} ${consStr} ${origen}`,
+    `${speciesShort}, ${presLow}${trimStr}. Calidad de exportación para el mercado local.${calStr}${brandStr}`,
+  ];
+}
+
+function renderDescriptionSuggestionsLocal() {
+  const list = document.getElementById('suggestions-list-local');
+  const suggestions = generateDescriptionSuggestionsLocal();
+  list.innerHTML = '';
+  suggestions.forEach(text => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'suggestion-chip';
+    chip.textContent = text;
+    chip.addEventListener('click', () => {
+      document.getElementById('pl-notes').value = text;
+      list.innerHTML = '';
+    });
+    list.appendChild(chip);
+  });
+}
+
 function openProductForm(productId) {
   editingProductId = productId;
   const panel = document.getElementById('product-form-panel');
@@ -685,6 +729,8 @@ function bindProductLocalForm() {
   document.getElementById('btn-cancel-product-local').addEventListener('click', () => closeProductLocalForm());
   document.getElementById('btn-save-product-local').addEventListener('click', saveProductLocal);
   document.getElementById('btn-delete-product-local').addEventListener('click', deleteProductLocal);
+
+  document.getElementById('btn-suggest-desc-local').addEventListener('click', renderDescriptionSuggestionsLocal);
 
   // Auto-fill shelf life cuando cambia conservación
   document.getElementById('pl-conservation').addEventListener('change', () => {
