@@ -2305,18 +2305,24 @@ label.rate-warning-label {
    ============================================================ */
 .quote-photo-gallery {
   display: flex;
-  gap: 6px;
-  padding: 8px 0;
+  gap: 8px;
+  padding: 10px 0;
   flex-wrap: wrap;
+  align-items: center;
+  background: var(--gray-50);
+  border-radius: 8px;
+  padding: 10px 12px;
 }
 .qpg-label {
-  font-size: 11px;
-  color: var(--gray-500);
-  align-self: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray-600);
+  width: 100%;
+  margin-bottom: 2px;
 }
 .qpg-item {
-  width: 52px;
-  height: 52px;
+  width: 64px;
+  height: 64px;
   border-radius: 6px;
   overflow: hidden;
   cursor: pointer;

@@ -297,11 +297,13 @@ function onProductChange() {
 
 function renderQuotePhotoGallery(product) {
   const gallery = document.getElementById('quote-photo-gallery');
-  const photos = product?.available_photos ?? [];
+  // Juntar foto principal + available_photos, deduplicar
+  const raw = [product?.photo, ...(product?.available_photos ?? [])].filter(Boolean);
+  const photos = [...new Set(raw)];
   if (!photos.length) { gallery.style.display = 'none'; return; }
 
   gallery.style.display = '';
-  gallery.innerHTML = photos.length > 1 ? '<span class="qpg-label">Elegir foto:</span>' : '';
+  gallery.innerHTML = '<span class="qpg-label">Foto para PDF:</span>';
   photos.forEach(src => {
     const item = document.createElement('div');
     item.className = 'qpg-item' + (src === (selectedQuotePhoto || product.photo) ? ' selected' : '');
