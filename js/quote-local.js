@@ -460,10 +460,12 @@ function createItemRow(layerIdx, itemIdx) {
 }
 
 function addItem(layerIdx) {
-  const isProcessing = layers[layerIdx].id === 'processing';
+  const layerId = layers[layerIdx].id;
+  const isProcessing = layerId === 'processing';
+  const isPackaging = layerId === 'packaging';
   layers[layerIdx].items.push({
     name: '', source: 'manual', table_ref: null, currency: 'ARS',
-    variable_value: 0, variable_unit: 'kg', variable_unit_kg: null,
+    variable_value: 0, variable_unit: isPackaging ? 'box' : 'kg', variable_unit_kg: isPackaging ? 10 : null,
     fixed_per_shipment: 0, fixed_per_quote: 0, cost_per_kg_calc: 0, notes: '',
     ...(isProcessing ? { yield_pct: null } : {})
   });
