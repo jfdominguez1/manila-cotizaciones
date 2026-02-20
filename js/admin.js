@@ -270,14 +270,29 @@ function renderPhotoPicker(currentPhotoSrc) {
   noneItem.addEventListener('click', () => renderPhotoPicker(''));
   gallery.appendChild(noneItem);
 
-  // Fotos base globales (compartidas, sin eliminar)
-  PRODUCT_PHOTOS.forEach(src => {
+  // Fotos base globales (con opción de eliminar)
+  PRODUCT_PHOTOS.forEach((src, idx) => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'photo-pick-wrapper';
     const item = document.createElement('div');
     item.className = 'photo-pick-item' + (src === selectedPhoto ? ' selected' : '');
     item.innerHTML = `<img src="${src}" alt="">`;
     item.title = src.split('/').pop();
     item.addEventListener('click', () => renderPhotoPicker(src));
-    gallery.appendChild(item);
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'photo-pick-del';
+    delBtn.innerHTML = '✕';
+    delBtn.title = 'Eliminar foto';
+    delBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      if (selectedPhoto === src) selectedPhoto = '';
+      PRODUCT_PHOTOS.splice(idx, 1);
+      renderPhotoPicker(selectedPhoto);
+    });
+    wrapper.appendChild(item);
+    wrapper.appendChild(delBtn);
+    gallery.appendChild(wrapper);
   });
 
   // Fotos propias del producto (con X para eliminar)
@@ -764,14 +779,29 @@ function renderPhotoPickerLocal(currentPhotoSrc) {
   noneItem.addEventListener('click', () => renderPhotoPickerLocal(''));
   gallery.appendChild(noneItem);
 
-  // Fotos base globales
-  PRODUCT_PHOTOS.forEach(src => {
+  // Fotos base globales (con opción de eliminar)
+  PRODUCT_PHOTOS.forEach((src, idx) => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'photo-pick-wrapper';
     const item = document.createElement('div');
     item.className = 'photo-pick-item' + (src === selectedPhotoLocal ? ' selected' : '');
     item.innerHTML = `<img src="${src}" alt="">`;
     item.title = src.split('/').pop();
     item.addEventListener('click', () => renderPhotoPickerLocal(src));
-    gallery.appendChild(item);
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'photo-pick-del';
+    delBtn.innerHTML = '✕';
+    delBtn.title = 'Eliminar foto';
+    delBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      if (selectedPhotoLocal === src) selectedPhotoLocal = '';
+      PRODUCT_PHOTOS.splice(idx, 1);
+      renderPhotoPickerLocal(selectedPhotoLocal);
+    });
+    wrapper.appendChild(item);
+    wrapper.appendChild(delBtn);
+    gallery.appendChild(wrapper);
   });
 
   // Fotos propias del producto local
