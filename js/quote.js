@@ -297,10 +297,10 @@ function onProductChange() {
 function renderQuotePhotoGallery(product) {
   const gallery = document.getElementById('quote-photo-gallery');
   const photos = product?.available_photos ?? [];
-  if (photos.length <= 1) { gallery.style.display = 'none'; return; }
+  if (!photos.length) { gallery.style.display = 'none'; return; }
 
   gallery.style.display = '';
-  gallery.innerHTML = '';
+  gallery.innerHTML = photos.length > 1 ? '<span class="qpg-label">Elegir foto:</span>' : '';
   photos.forEach(src => {
     const item = document.createElement('div');
     item.className = 'qpg-item' + (src === (selectedQuotePhoto || product.photo) ? ' selected' : '');
@@ -590,7 +590,7 @@ function showTablePicker(layerIdx, itemIdx, row) {
     const t = tables.find(x => x.id === select.value);
     if (t) {
       const item = layers[layerIdx].items[itemIdx];
-      item.name = item.name || t.name;
+      item.name = t.name;
       item.table_ref = t.id;
       item.currency = t.currency ?? 'USD';
       item.variable_value = t.variable_value ?? 0;
@@ -714,9 +714,9 @@ function recalculate() {
   // Yield deviation warning
   const yieldWarning = document.getElementById('yield-warning');
   if (yieldWarning) {
-    if (currentProduct?.default_yield_pct && effectiveYield < 1) {
-      const actual = effectiveYield * 100;
-      const expected = currentProduct.default_yield_pct;
+    const actual = effectiveYield * 100;
+    const expected = currentProduct?.default_yield_pct;
+    if (expected && actual !== expected) {
       const deviation = Math.abs(actual - expected) / expected * 100;
       if (deviation > 10) {
         yieldWarning.style.display = '';
@@ -1602,7 +1602,6 @@ function renderChecklist() {
   checks.push({ label: 'Cliente', ok: !!document.getElementById('client-name').value.trim() });
   checks.push({ label: 'Producto', ok: !!document.getElementById('product-select').value });
   checks.push({ label: 'Incoterm', ok: !!document.getElementById('incoterm-select').value });
-  checks.push({ label: 'Volumen', ok: (parseNum(document.getElementById('volume-kg').value) || 0) > 0 });
 
   // Ítems obligatorios de costo
   MANDATORY_ITEMS.forEach(mi => {

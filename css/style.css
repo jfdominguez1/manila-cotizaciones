@@ -2309,6 +2309,11 @@ label.rate-warning-label {
   padding: 8px 0;
   flex-wrap: wrap;
 }
+.qpg-label {
+  font-size: 11px;
+  color: var(--gray-500);
+  align-self: center;
+}
 .qpg-item {
   width: 52px;
   height: 52px;
