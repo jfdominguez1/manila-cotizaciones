@@ -273,7 +273,7 @@ body {
   transition: box-shadow 0.15s, transform 0.15s;
 }
 .dash-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); transform: translateY(-1px); }
-.dash-card .dash-card-icon { font-size: 28px; }
+.dash-card .dash-card-icon { font-size: 28px; line-height: 1; }
 .dash-card .dash-card-title { font-size: 15px; font-weight: 600; }
 .dash-card .dash-card-desc { font-size: 12px; color: var(--gray-500); line-height: 1.5; }
 
@@ -1994,6 +1994,9 @@ label.rate-warning-label {
    ============================================================ */
 .nav-dropdown {
   position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
 }
 .nav-dropdown > .nav-dropdown-label {
   color: rgba(255,255,255,0.65);
@@ -2188,6 +2191,61 @@ label.rate-warning-label {
 }
 .dash-section-badge.export { background: #dce9f0; color: #365A6E; }
 .dash-section-badge.local  { background: #e8f5e9; color: #2e7d32; }
+
+/* ============================================================
+   DASHBOARD HERO
+   ============================================================ */
+.dashboard-hero {
+  position: relative;
+  height: 200px;
+  background: url('../img/hero-bg.jpg') center/cover no-repeat;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.dashboard-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(47,44,43,0.65), rgba(47,44,43,0.82));
+}
+.dashboard-hero img {
+  position: relative;
+  height: 72px;
+  filter: brightness(0) invert(1);
+}
+.dashboard-hero .hero-sub {
+  position: relative;
+  color: rgba(255,255,255,0.6);
+  font-size: 13px;
+  margin-top: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+/* ============================================================
+   SVG ICONS — dashboard cards
+   ============================================================ */
+.dash-card-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dash-card-icon svg {
+  width: 28px;
+  height: 28px;
+  stroke: var(--carbon);
+  stroke-width: 1.5;
+  fill: none;
+}
+.dash-card:hover .dash-card-icon svg {
+  stroke: var(--accent);
+}
 
 /* ============================================================
    RESPONSIVE
