@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manual de Uso — Cotizaciones Manila</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      font-size: 10pt;
+      color: #2F2C2B;
+      line-height: 1.5;
+      background: #f0f0f0;
+    }
+
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      padding: 15mm 18mm;
+      margin: 10mm auto;
+      background: white;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+    }
+
+    @media print {
+      body { background: white; }
+      .page {
+        margin: 0;
+        box-shadow: none;
+        page-break-after: always;
+      }
+      .page:last-child { page-break-after: auto; }
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 2px solid #2F2C2B;
+      padding-bottom: 8px;
+      margin-bottom: 14px;
+    }
+    .header h1 {
+      font-size: 16pt;
+      font-weight: 700;
+      color: #2F2C2B;
+    }
+    .header .subtitle {
+      font-size: 9pt;
+      color: #888;
+    }
+    .logo-placeholder {
+      width: 36mm;
+      text-align: right;
+      font-size: 9pt;
+      font-weight: 600;
+      color: #40543B;
+    }
+
+    /* Sections */
+    h2 {
+      font-size: 12pt;
+      font-weight: 700;
+      color: #40543B;
+      margin: 12px 0 6px;
+      padding-bottom: 3px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    h3 {
+      font-size: 10pt;
+      font-weight: 600;
+      color: #365A6E;
+      margin: 8px 0 4px;
+    }
+
+    p, li { font-size: 9.5pt; line-height: 1.55; }
+    ul { padding-left: 16px; }
+    li { margin-bottom: 3px; }
+
+    .step-list {
+      counter-reset: step;
+      list-style: none;
+      padding-left: 0;
+    }
+    .step-list li {
+      counter-increment: step;
+      position: relative;
+      padding-left: 28px;
+      margin-bottom: 6px;
+    }
+    .step-list li::before {
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 20px;
+      height: 20px;
+      background: #40543B;
+      color: white;
+      border-radius: 50%;
+      font-size: 9pt;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .highlight-box {
+      background: #f7f5f3;
+      border-left: 3px solid #C94707;
+      padding: 8px 12px;
+      margin: 8px 0;
+      border-radius: 0 6px 6px 0;
+      font-size: 9pt;
+    }
+    .highlight-box strong { color: #C94707; }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .field-ref {
+      background: #eef3f6;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 8.5pt;
+      font-weight: 500;
+      color: #365A6E;
+      white-space: nowrap;
+    }
+
+    .nav-diagram {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      margin: 6px 0 10px;
+      flex-wrap: wrap;
+    }
+    .nav-item {
+      background: #2F2C2B;
+      color: white;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 8.5pt;
+      font-weight: 500;
+    }
+    .nav-item.active {
+      background: #40543B;
+    }
+    .nav-arrow {
+      color: #aaa;
+      font-size: 10pt;
+    }
+
+    .cost-diagram {
+      display: flex;
+      gap: 0;
+      margin: 6px 0 10px;
+      align-items: stretch;
+    }
+    .cost-stage {
+      flex: 1;
+      padding: 6px 8px;
+      text-align: center;
+      font-size: 8pt;
+      font-weight: 600;
+      border: 1px solid #ddd;
+    }
+    .cost-stage:first-child { border-radius: 6px 0 0 6px; }
+    .cost-stage:last-child { border-radius: 0 6px 6px 0; }
+    .cost-stage.exw { background: #e8efe7; color: #40543B; }
+    .cost-stage.fob { background: #e4ecf0; color: #365A6E; }
+    .cost-stage.cif { background: #fdf1e8; color: #C94707; }
+    .cost-stage.ddp { background: #f0e8ef; color: #6b3a6e; }
+    .cost-stage small { display: block; font-weight: 400; font-size: 7.5pt; color: #777; }
+
+    .tip {
+      display: flex;
+      gap: 6px;
+      align-items: flex-start;
+      margin: 6px 0;
+      font-size: 9pt;
+    }
+    .tip-icon {
+      flex-shrink: 0;
+      font-size: 12pt;
+      line-height: 1.2;
+    }
+
+    .footer {
+      margin-top: auto;
+      padding-top: 8px;
+      border-top: 1px solid #e0e0e0;
+      font-size: 7.5pt;
+      color: #aaa;
+      text-align: center;
+    }
+
+    .page { display: flex; flex-direction: column; }
+  </style>
+</head>
+<body>
+
+<!-- ====== PAGINA 1 ====== -->
+<div class="page">
+
+  <div class="header">
+    <div>
+      <h1>Manual de Uso</h1>
+      <span class="subtitle">Sistema de Cotizaciones Manila — v2.5</span>
+    </div>
+    <div class="logo-placeholder">Manila S.A.</div>
+  </div>
+
+  <h2>1. Acceso al sistema</h2>
+  <p>Ingresá a <strong>https://jfdominguez1.github.io/manila-cotizaciones/</strong> desde cualquier navegador (Chrome recomendado). El sistema te va a pedir tu email y contraseña.</p>
+
+  <h2>2. Navegación</h2>
+  <p>En la barra superior tenés acceso a todas las secciones:</p>
+  <div class="nav-diagram">
+    <span class="nav-item">Dashboard</span>
+    <span class="nav-item active">Export ▾</span>
+    <span class="nav-item">Local ▾</span>
+    <span class="nav-item">Admin</span>
+  </div>
+  <ul>
+    <li><strong>Dashboard:</strong> Pantalla principal con tus cotizaciones recientes</li>
+    <li><strong>Export:</strong> Cotizaciones de exportación (Nueva + Historial)</li>
+    <li><strong>Local:</strong> Cotizaciones de mercado interno (Nueva + Historial)</li>
+    <li><strong>Admin:</strong> Administrar productos, costos y configuración</li>
+  </ul>
+
+  <h2>3. Crear una cotización de exportación</h2>
+  <p>Hacé click en <strong>Export → Nueva Export</strong>. La pantalla se divide en dos partes: el <strong>panel izquierdo</strong> (datos del cliente y resumen) y las <strong>capas de costo</strong> a la derecha.</p>
+
+  <ol class="step-list">
+    <li><strong>Elegí el producto:</strong> Seleccioná del menú desplegable. Se carga la foto y los datos del producto.</li>
+    <li><strong>Elegí la marca:</strong> Manila S.A., Patagonia Exquisiteces o Andes Natural Fish. Esto cambia el logo y los colores del PDF.</li>
+    <li><strong>Completá los datos del cliente:</strong> Nombre, país, puerto de destino.</li>
+    <li><strong>Configurá la operación:</strong> Elegí el <strong>Incoterm</strong> (EXW, FOB, CIF o DDP), el tipo de envío, volumen en kg y número de embarques.</li>
+    <li><strong>Cargá los costos</strong> en las capas de la derecha (ver sección 4).</li>
+    <li><strong>Ajustá el margen</strong> en el resumen del panel izquierdo (ver sección 5).</li>
+  </ol>
+
+  <h2>4. Capas de costo (columna derecha)</h2>
+  <p>Los costos se organizan en capas, que se van acumulando según el Incoterm elegido:</p>
+
+  <div class="cost-diagram">
+    <div class="cost-stage exw">EXW<small>Planta</small></div>
+    <div class="cost-stage fob">FOB<small>Despacho</small></div>
+    <div class="cost-stage cif">CIF<small>Flete + Seguro</small></div>
+    <div class="cost-stage ddp">DDP<small>Destino</small></div>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <h3>Capas EXW (siempre visibles)</h3>
+      <ul>
+        <li><strong>Materia Prima:</strong> Costo del pescado por kg</li>
+        <li><strong>Proceso en Planta:</strong> Mano de obra, proceso, empaque</li>
+        <li><strong>Materiales y Embalaje:</strong> Envases, etiquetas, cajas</li>
+        <li><strong>Otros:</strong> Costos adicionales</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Capas de logística (según Incoterm)</h3>
+      <ul>
+        <li><strong>Costos FOB:</strong> Carga, despacho de exportación</li>
+        <li><strong>Costos CIF:</strong> Flete internacional, seguro</li>
+        <li><strong>Costos DDP:</strong> Gastos en destino, aranceles</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="highlight-box">
+    <strong>Cada ítem de costo tiene:</strong> un valor variable (por kg, por caja, por carga), y opcionalmente un valor fijo por embarque. Podés elegir si el costo está en USD o ARS (si usás ARS, completá el tipo de cambio).
+  </div>
+
+  <h3>Rendimiento (Yield)</h3>
+  <p>En <strong>Proceso en Planta</strong>, el ítem "Proceso" tiene un campo de <strong>Rendimiento (%)</strong>. Ingresá el porcentaje de producto terminado que sale de la materia prima (por ejemplo: 85% significa que de 100 kg de pescado entero salen 85 kg de filete). El sistema ajusta automáticamente el costo de materia prima dividiéndolo por el rendimiento.</p>
+
+  <div class="tip">
+    <span class="tip-icon">💡</span>
+    <span>Si el producto tiene un rendimiento estándar cargado en Admin, se autocompleta. Podés cambiarlo manualmente para cada cotización.</span>
+  </div>
+
+  <div class="footer">Manila S.A. — Sistema de Cotizaciones v2.5 — Documento interno</div>
+</div>
+
+<!-- ====== PAGINA 2 ====== -->
+<div class="page">
+
+  <div class="header">
+    <div>
+      <h1>Manual de Uso</h1>
+      <span class="subtitle">Página 2 — Resumen, PDFs y tips</span>
+    </div>
+    <div class="logo-placeholder">Manila S.A.</div>
+  </div>
+
+  <h2>5. Resumen y margen (panel izquierdo)</h2>
+  <p>Al final del panel izquierdo encontrás el <strong>Resumen de costos</strong>. Ahí ves:</p>
+  <ul>
+    <li>El desglose acumulado por etapa (EXW, FOB, CIF, DDP) en <strong>USD/kg</strong>, <strong>USD/lb</strong> y <strong>total del embarque</strong></li>
+    <li><strong>Subtotal costos:</strong> La suma de todos los costos cargados</li>
+    <li><strong>Margen:</strong> El porcentaje de ganancia que se aplica <strong>solo sobre el costo EXW</strong> (planta). Los costos de logística pasan sin margen.</li>
+    <li><strong>Precio de venta:</strong> El precio final en USD/kg y USD/lb, destacado en grande</li>
+  </ul>
+
+  <div class="highlight-box">
+    <strong>Fijar margen vs. Fijar precio:</strong> Por defecto el sistema calcula el precio a partir del margen que ponés (ej: 20%). Si preferís, podés hacer click en <strong>"Fijar precio"</strong> y poner el precio que querés cobrar — el sistema te calcula qué margen te queda.
+  </div>
+
+  <h2>6. Generar PDFs</h2>
+  <p>En la parte inferior del panel izquierdo tenés dos botones:</p>
+
+  <div class="two-col">
+    <div>
+      <h3>PDF Cliente</h3>
+      <p>Es la propuesta que le mandás al cliente. Incluye:</p>
+      <ul>
+        <li>Logo y colores de la marca elegida</li>
+        <li>Foto del producto</li>
+        <li>Precio por kg y por lb</li>
+        <li>Incoterm con descripción</li>
+        <li>Datos del embarque</li>
+        <li>Certificaciones seleccionadas</li>
+        <li>Comentarios y condiciones</li>
+      </ul>
+      <p><em>No muestra costos ni margen.</em></p>
+    </div>
+    <div>
+      <h3>PDF Costos</h3>
+      <p>Es el documento <strong>interno y confidencial</strong>. Incluye:</p>
+      <ul>
+        <li>Tabla completa de costos por capa</li>
+        <li>Rendimiento aplicado</li>
+        <li>Comisión, margen y precio final</li>
+        <li>Resumen en la franja inferior</li>
+        <li>Equivalente en ARS si cargaste tipo de cambio</li>
+        <li>Copia de la propuesta al cliente</li>
+      </ul>
+      <p><em>Marcado como CONFIDENCIAL.</em></p>
+    </div>
+  </div>
+
+  <div class="tip">
+    <span class="tip-icon">💡</span>
+    <span>Los PDFs se abren en la ventana de impresión del navegador. Elegí <strong>"Guardar como PDF"</strong> como destino de impresión.</span>
+  </div>
+
+  <h2>7. Guardar y confirmar</h2>
+  <ul>
+    <li><strong>Guardar borrador:</strong> Guarda la cotización como borrador. Podés editarla después desde el Historial.</li>
+    <li><strong>Confirmar cotización:</strong> La marca como confirmada y le asigna un número definitivo (EXP-YYYY-NNN).</li>
+  </ul>
+
+  <h2>8. Historial</h2>
+  <p>En <strong>Export → Historial Export</strong> podés ver todas tus cotizaciones (borradores y confirmadas). Desde ahí podés:</p>
+  <ul>
+    <li><strong>Abrir</strong> una cotización para editarla o reimprimir los PDFs</li>
+    <li>Ver el estado, fecha, cliente y precio de cada una</li>
+    <li>Filtrar por estado (borrador / confirmada)</li>
+  </ul>
+
+  <h2>9. Tips rápidos</h2>
+
+  <div class="two-col">
+    <div>
+      <div class="tip">
+        <span class="tip-icon">✅</span>
+        <span><strong>Checklist:</strong> Arriba del panel izquierdo hay un indicador de completitud (ej: 5/9) que te muestra qué campos faltan completar.</span>
+      </div>
+      <div class="tip">
+        <span class="tip-icon">📷</span>
+        <span><strong>Fotos:</strong> Podés elegir qué foto aparece en el PDF del cliente desde la galería del producto.</span>
+      </div>
+      <div class="tip">
+        <span class="tip-icon">🏷️</span>
+        <span><strong>Alias:</strong> Poné un alias (ej: "Prueba Miami Q1") para identificar rápido cada cotización en el historial.</span>
+      </div>
+    </div>
+    <div>
+      <div class="tip">
+        <span class="tip-icon">💱</span>
+        <span><strong>Tipo de cambio:</strong> Si algún costo está en ARS, completá la cotización del dólar arriba en el panel para que se convierta a USD.</span>
+      </div>
+      <div class="tip">
+        <span class="tip-icon">📊</span>
+        <span><strong>Margen en EXW:</strong> El margen se calcula solo sobre los costos de planta. Flete, seguro y aranceles pasan al precio sin margen adicional.</span>
+      </div>
+      <div class="tip">
+        <span class="tip-icon">🖨️</span>
+        <span><strong>Imprimir:</strong> Usá Chrome para mejores resultados. En la ventana de impresión elegí "Guardar como PDF" y tamaño A4.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">Manila S.A. — Sistema de Cotizaciones v2.5 — Documento interno — Preguntas: info@manilapatagonia.com</div>
+</div>
+
+</body>
+</html>
