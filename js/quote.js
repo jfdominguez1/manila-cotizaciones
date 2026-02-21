@@ -1465,11 +1465,15 @@ async function printQuote(mode) {
   document.getElementById('pdf-date').textContent = today;
   document.getElementById('pdf-valid').textContent = `Valid ${validDays} days`;
 
-  // Incoterm + origen en el bloque de precio
-  const incotermLabel = originPort
-    ? `${incoterm} — ${originPort}`
-    : incoterm;
-  document.getElementById('pdf-incoterm-label').textContent = incotermLabel;
+  // Incoterm banner — prominente con nombre completo y descripción
+  const incotermData = INCOTERMS.find(i => i.id === incoterm) || {};
+  const incotermFullname = (incotermData.name || incoterm).replace(/^[A-Z]+\s*—\s*/, '');
+  document.getElementById('pdf-incoterm-id').textContent = incoterm;
+  document.getElementById('pdf-incoterm-fullname').textContent = incotermFullname;
+  document.getElementById('pdf-incoterm-desc').textContent = incotermData.descEn || '';
+  const originText = originPort ? `Origin: ${originPort}` : '';
+  document.getElementById('pdf-incoterm-origin').textContent = originText;
+
   document.getElementById('pdf-price-main').textContent = `$${priceKg.toFixed(2)}`;
   document.getElementById('pdf-price-lb-val').textContent = `$${priceLb.toFixed(2)}`;
 
@@ -1552,34 +1556,43 @@ async function printQuote(mode) {
 
   // ---- Página interna ----
   document.getElementById('pdf-int-quote-number').textContent = currentQuoteNumber;
-  const calc = recalculate();   // primero calc para pasar al resumen
-  buildInternalTable(calc);     // luego tabla + breakdown con calc
-  document.getElementById('pdf-sum-cost').textContent = `$${(calc?.totalCostPerKg ?? 0).toFixed(3)}`;
+  const alias = document.getElementById('quote-alias')?.value.trim() ?? '';
+  const aliasEl = document.getElementById('pdf-int-alias');
+  if (aliasEl) aliasEl.textContent = alias ? `— ${alias}` : '';
+
+  // Fecha en header interno
+  const pdiDateEl = document.getElementById('pdi-date');
+  if (pdiDateEl) pdiDateEl.textContent = today;
+
+  const calc = recalculate();
+  buildInternalTable(calc);
+
+  // Summary strip
+  const commPerKg = calc?.commPerKg ?? 0;
   const marginPctVal = parseNum(document.getElementById('margin-pct').value) || 0;
-  const marginAbsUsd = priceKg - (calc?.totalCostPerKg ?? 0);
-  document.getElementById('pdf-sum-margin').textContent = `${marginPctVal}%`;
+  const marginAbsUsd = priceKg - (calc?.totalCostPerKg ?? 0) - commPerKg;
   const usdArsRateForMargin = parseNum(document.getElementById('usd-ars-rate').value) || 0;
   const marginArsStr = usdArsRateForMargin > 0
     ? ` · ARS $${Math.round(marginAbsUsd * usdArsRateForMargin).toLocaleString('es-AR')}/kg`
     : '';
-  document.getElementById('pdf-sum-margin-abs').textContent = `$${marginAbsUsd.toFixed(2)} USD/kg${marginArsStr}`;
-  document.getElementById('pdf-sum-price').textContent = `$${priceKg.toFixed(2)}`;
+
+  document.getElementById('pdf-sum-cost').textContent = `$${(calc?.totalCostPerKg ?? 0).toFixed(3)}`;
+  document.getElementById('pdf-sum-comm').textContent = `$${commPerKg.toFixed(3)}`;
+  document.getElementById('pdf-sum-margin').textContent = `${marginPctVal}%`;
+  document.getElementById('pdf-sum-margin-abs').textContent = `$${marginAbsUsd.toFixed(2)}/kg${marginArsStr}`;
+  document.getElementById('pdf-sum-price').textContent = `$${priceKg.toFixed(2)}/kg`;
   document.getElementById('pdf-sum-price-lb').textContent = `$${priceLb.toFixed(2)}/lb`;
+
   // Cotización del dólar
   const usdArsRate = parseNum(document.getElementById('usd-ars-rate').value) || null;
   const rateEl = document.getElementById('pdf-rate-note');
   if (usdArsRate) {
-    rateEl.textContent = `Tipo de cambio: USD 1 = ARS $${usdArsRate.toLocaleString('es-AR')} — ${today}`;
+    rateEl.textContent = `TC: USD 1 = ARS $${usdArsRate.toLocaleString('es-AR')} — ${today}`;
     rateEl.classList.add('visible');
   } else {
     rateEl.textContent = '';
     rateEl.classList.remove('visible');
   }
-
-  // Alias en PDF interno
-  const alias = document.getElementById('quote-alias')?.value.trim() ?? '';
-  const aliasEl = document.getElementById('pdf-int-alias');
-  if (aliasEl) aliasEl.textContent = alias ? ` — ${alias}` : '';
 
   // Logística en PDF interno
   const clientName = document.getElementById('client-name').value.trim();
@@ -1591,23 +1604,20 @@ async function printQuote(mode) {
   const logEl = document.getElementById('pdf-int-logistics');
   if (logEl) {
     const cells = [
-      ['Incoterm', incoterm || '—'],
+      ['Incoterm', `<strong>${incoterm}</strong>`],
       ['Origen',   originPort || '—'],
       ['Destino',  destPort || clientCountry || '—'],
-      ['País',     clientCountry || '—'],
       ['Transporte', transportType || '—'],
-      ['Volumen',  `${volumeKgIntern.toLocaleString('es-AR')} kg`],
-      ['Embarques', numShipIntern],
+      ['Volumen',  `${volumeKgIntern.toLocaleString('es-AR')} kg × ${numShipIntern} emb.`],
       ['Lead Time', leadTime || '—'],
       ['Cliente',  clientName || '—'],
+      ['Producto', currentProduct?.name || '—'],
     ];
-    logEl.innerHTML = `<div class="pdf-section-label" style="font-size:6.5pt;margin-bottom:2mm">Logistics</div><div class="pil-grid">${
-      cells.map(([l, v]) => `<div class="pil-cell"><span class="pil-label">${l}</span><span class="pil-val">${v}</span></div>`).join('')
-    }</div>`;
+    logEl.innerHTML = cells.map(([l, v]) => `<span class="pdi-log-item"><span class="pdi-log-label">${l}:</span> ${v}</span>`).join('');
   }
 
   document.getElementById('pdf-meta-footer').textContent =
-    `Created by: ${currentUser.email} — ${new Date().toLocaleString('es-AR')} — INTERNAL USE ONLY`;
+    `${currentUser.email} — ${new Date().toLocaleString('es-AR')} — INTERNAL USE ONLY`;
 
   // Aplicar modo de impresión
   document.body.classList.remove('print-client', 'print-internal');
@@ -1640,7 +1650,6 @@ function buildInternalTable(calc = null) {
     if (!visibleStages.includes(stage)) return;
 
     const stageLayers = layers.filter(l => l.stage === stage);
-    // Incluir 'other' en EXW
     if (stage === 'EXW') {
       const otherLayer = layers.find(l => l.stage === null);
       if (otherLayer && otherLayer.items.length > 0) stageLayers.push(otherLayer);
@@ -1652,25 +1661,25 @@ function buildInternalTable(calc = null) {
       if (layer.items.length === 0) return;
 
       const layerRow = document.createElement('tr');
-      layerRow.className = 'layer-title';
+      layerRow.className = 'pdi-layer-title';
       const yieldNote = layer.applies_yield && ey < 1
-        ? ` (÷ ${(ey * 100).toFixed(1)}% rdto → ×${(1/ey).toFixed(2)})`
+        ? ` <span class="pdi-yield">(÷${(ey * 100).toFixed(1)}% → ×${(1/ey).toFixed(2)})</span>`
         : '';
-      layerRow.innerHTML = `<td colspan="6">${layer.name}${yieldNote}</td>`;
+      layerRow.innerHTML = `<td colspan="4">${layer.name}${yieldNote}</td>`;
       tbody.appendChild(layerRow);
 
       let layerTotal = 0;
       layer.items.forEach(item => {
         const tr = document.createElement('tr');
         const unitLabel = COST_UNITS.find(u => u.id === item.variable_unit)?.label ?? item.variable_unit;
-        const cur = item.currency === 'ARS' ? 'ARS $' : 'USD';
-        const curBadge = `<span style="font-size:8pt;font-weight:700;padding:1px 4px;border-radius:3px;background:${item.currency === 'ARS' ? '#fef3cd' : '#dce9f0'};color:${item.currency === 'ARS' ? '#7c5a00' : '#365A6E'}">${cur}</span>`;
+        const curTag = item.currency === 'ARS' ? '<span class="pdi-cur-ars">ARS</span>' : '';
+        const detailParts = [];
+        detailParts.push(`${(item.variable_value ?? 0).toFixed(2)} ${unitLabel}`);
+        if (item.source === 'table') detailParts.push('Tabla');
         tr.innerHTML = `
-          <td>${item.name || '—'}</td>
-          <td>${item.source === 'table' ? 'Tabla' : 'Manual'} ${curBadge}</td>
-          <td class="num">${(item.variable_value ?? 0).toFixed(2)} ${unitLabel}</td>
-          <td class="num">${item.fixed_per_shipment ? (item.currency === 'ARS' ? 'ARS $' : '$') + item.fixed_per_shipment.toFixed(2) : '—'}</td>
-          <td class="num">${item.fixed_per_quote ? (item.currency === 'ARS' ? 'ARS $' : '$') + item.fixed_per_quote.toFixed(2) : '—'}</td>
+          <td>${item.name || '—'} ${curTag}</td>
+          <td class="num">${detailParts.join(' · ')}</td>
+          <td class="num">${item.fixed_per_shipment ? '$' + item.fixed_per_shipment.toFixed(0) : '—'}</td>
           <td class="num">$${(item.cost_per_kg_calc ?? 0).toFixed(4)}</td>
         `;
         tbody.appendChild(tr);
@@ -1679,8 +1688,8 @@ function buildInternalTable(calc = null) {
 
       if (layer.items.length > 1) {
         const subRow = document.createElement('tr');
-        subRow.className = 'subtotal';
-        subRow.innerHTML = `<td colspan="5">Subtotal ${layer.name}</td><td class="num">$${layerTotal.toFixed(4)}</td>`;
+        subRow.className = 'pdi-subtotal';
+        subRow.innerHTML = `<td colspan="3">Subtotal ${layer.name}</td><td class="num">$${layerTotal.toFixed(4)}</td>`;
         tbody.appendChild(subRow);
       }
       stageTotal += layerTotal;
@@ -1688,83 +1697,56 @@ function buildInternalTable(calc = null) {
 
     accumulated += stageTotal;
 
-    // Subtotal acumulado del stage
+    // Stage subtotal row (acumulativo)
     if (stageTotal > 0) {
       const stageSubRow = document.createElement('tr');
-      stageSubRow.className = 'subtotal stage-subtotal-row';
-      const totalAmt = pdfHasVol ? ` (${pdfFmt(accumulated * pdfVol)})` : '';
-      stageSubRow.innerHTML = `<td colspan="5"><strong>${stage}</strong> — $${(accumulated / 2.20462).toFixed(2)}/lb${totalAmt}</td><td class="num"><strong>$${accumulated.toFixed(4)}/kg</strong></td>`;
+      stageSubRow.className = 'pdi-stage-total';
+      const lbVal = (accumulated / 2.20462).toFixed(2);
+      const totalAmt = pdfHasVol ? `${pdfFmt(accumulated * pdfVol)}` : '';
+      stageSubRow.innerHTML = `
+        <td><strong>${stage}</strong></td>
+        <td class="num">$${lbVal}/lb</td>
+        <td class="num">${totalAmt}</td>
+        <td class="num"><strong>$${accumulated.toFixed(4)}</strong></td>
+      `;
       tbody.appendChild(stageSubRow);
     }
   });
 
-  // Comisión row
-  if (commission.pct > 0 || commission.fixed_per_kg > 0 || commission.fixed_per_shipment > 0) {
-    const commRow = document.createElement('tr');
-    commRow.className = 'layer-title';
+  // Comisión row dentro de la tabla
+  if (calc && calc.commPerKg > 0) {
     const parts = [];
     if (commission.pct > 0) {
-      const commBaseLabel = commission.base === 'plant_exit' ? 'salida planta' : commission.base === 'cost' ? 'costo total' : 'precio final';
+      const commBaseLabel = commission.base === 'plant_exit' ? 'salida planta' : commission.base === 'cost' ? 'costo' : 'precio final';
       parts.push(`${commission.pct}% s/${commBaseLabel}`);
     }
     if (commission.fixed_per_kg > 0) parts.push(`$${commission.fixed_per_kg}/kg`);
-    if (commission.fixed_per_shipment > 0) parts.push(`$${commission.fixed_per_shipment}/embarque`);
-    commRow.innerHTML = `<td colspan="6">Comisión comercial (${parts.join(' + ')})</td>`;
+    if (commission.fixed_per_shipment > 0) parts.push(`$${commission.fixed_per_shipment}/emb`);
+    const commRow = document.createElement('tr');
+    commRow.className = 'pdi-comm-row';
+    commRow.innerHTML = `<td colspan="3">Comisión (${parts.join(' + ')})</td><td class="num">$${calc.commPerKg.toFixed(4)}</td>`;
     tbody.appendChild(commRow);
   }
 
-  // Resumen de costos (breakdown por stage)
-  const breakdownEl = document.getElementById('pdf-cost-breakdown');
-  if (breakdownEl && calc) {
-    const { totalCostPerKg, commPerKg, pricePerKg, pricePerLb, marginPct } = calc;
-    const fmtLb = (perKg) => (perKg / 2.20462).toFixed(2);
+  // Margen + Precio final rows
+  if (calc) {
+    const marginAmount = calc.pricePerKg - calc.totalCostPerKg - (calc.commPerKg ?? 0);
 
-    let html = '<div class="pdf-cost-breakdown-title">Resumen por Incoterm</div>';
-    let accum = 0;
+    const totalRow = document.createElement('tr');
+    totalRow.className = 'pdi-subtotal';
+    totalRow.innerHTML = `<td colspan="3">Subtotal costos</td><td class="num">$${calc.totalCostPerKg.toFixed(4)}</td>`;
+    tbody.appendChild(totalRow);
 
-    stageOrder.forEach(stage => {
-      if (!visibleStages.includes(stage)) return;
-      const sLayers = layers.filter(l => l.stage === stage);
-      if (stage === 'EXW') {
-        const otherL = layers.find(l => l.stage === null);
-        if (otherL) sLayers.push(otherL);
-      }
+    const marginRow = document.createElement('tr');
+    marginRow.innerHTML = `<td colspan="3">Margen (${(calc.marginPct * 100).toFixed(1)}%)</td><td class="num">+$${marginAmount.toFixed(4)}</td>`;
+    tbody.appendChild(marginRow);
 
-      sLayers.forEach(l => {
-        if (l.items.length === 0) return;
-        const lt = l.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0);
-        html += `<div class="pdf-breakdown-row"><span class="bd-label">${l.name}</span><span class="bd-val">$${lt.toFixed(3)}/kg</span></div>`;
-        accum += lt;
-      });
-
-      if (accum > 0) {
-        const totalAmt = pdfHasVol ? ` <span style="font-size:6.5pt;opacity:.65">(${pdfFmt(accum * pdfVol)})</span>` : '';
-        html += `<div class="pdf-breakdown-row stage-subtotal-pdf"><span class="bd-label"><strong>${stage}</strong></span><span class="bd-val"><strong>$${accum.toFixed(3)}/kg</strong> · $${fmtLb(accum)}/lb${totalAmt}</span></div>`;
-      }
-    });
-
-    if (commPerKg > 0) {
-      const parts = [];
-      if (commission.pct > 0) {
-        const bLabel = commission.base === 'plant_exit' ? 'salida planta' : commission.base === 'cost' ? 'costo' : 'precio final';
-        parts.push(`${commission.pct}% s/${bLabel}`);
-      }
-      if (commission.fixed_per_kg > 0) parts.push(`$${commission.fixed_per_kg}/kg`);
-      if (commission.fixed_per_shipment > 0) parts.push(`$${commission.fixed_per_shipment}/emb`);
-      html += `<div class="pdf-breakdown-row"><span class="bd-label">Comisión (${parts.join(' + ')})</span><span class="bd-val">$${commPerKg.toFixed(3)}/kg</span></div>`;
-    }
-
-    const marginAmount = pricePerKg - totalCostPerKg - commPerKg;
-    html += `<div class="pdf-breakdown-row separator"><span class="bd-label">Subtotal costos</span><span class="bd-val">$${totalCostPerKg.toFixed(3)}/kg</span></div>`;
-    html += `<div class="pdf-breakdown-row"><span class="bd-label">Margen (${(marginPct * 100).toFixed(1)}%)</span><span class="bd-val">+$${marginAmount.toFixed(3)}/kg</span></div>`;
-    html += `<div class="pdf-breakdown-row total"><span class="bd-label">Precio final</span><span class="bd-val">$${pricePerKg.toFixed(2)}/kg · $${pricePerLb.toFixed(2)}/lb</span></div>`;
-
-    const usdArsRatePdf = parseNum(document.getElementById('usd-ars-rate').value) || 0;
-    if (hasArsItems() && usdArsRatePdf > 0) {
-      html += `<div class="pdf-breakdown-row" style="margin-top:2mm;border-top:1px solid #e5e3e0;padding-top:2mm;color:#7c5a00;font-size:7pt"><span class="bd-label">TC ARS/USD</span><span class="bd-val">$${usdArsRatePdf.toLocaleString('es-AR')}/USD</span></div>`;
-    }
-
-    breakdownEl.innerHTML = html;
+    const priceRow = document.createElement('tr');
+    priceRow.className = 'pdi-grand-total';
+    const lbPrice = (calc.pricePerKg / 2.20462).toFixed(2);
+    const totalVal = pdfHasVol ? ` · ${pdfFmt(calc.pricePerKg * pdfVol)}` : '';
+    priceRow.innerHTML = `<td colspan="2"><strong>Precio final</strong></td><td class="num">$${lbPrice}/lb${totalVal}</td><td class="num"><strong>$${calc.pricePerKg.toFixed(2)}/kg</strong></td>`;
+    tbody.appendChild(priceRow);
   }
 }
 

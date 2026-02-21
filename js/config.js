@@ -47,12 +47,12 @@ export const CERTIFICATIONS = {
 };
 
 export const INCOTERMS = [
-  { id: 'EXW', name: 'EXW — Ex Works',           desc: 'Producto listo en planta, sin nada incluido' },
-  { id: 'FCA', name: 'FCA — Free Carrier',        desc: 'Entrega al transportista designado' },
-  { id: 'FOB', name: 'FOB — Free On Board',       desc: 'Puesto en el buque/avión en Buenos Aires' },
-  { id: 'CFR', name: 'CFR — Cost & Freight',      desc: 'FOB + flete internacional (sin seguro)' },
-  { id: 'CIF', name: 'CIF — Cost Insurance Freight', desc: 'FOB + flete internacional + seguro' },
-  { id: 'DDP', name: 'DDP — Delivered Duty Paid', desc: 'Todo incluido hasta la puerta del cliente' },
+  { id: 'EXW', name: 'EXW — Ex Works',           desc: 'Producto listo en planta, sin nada incluido', descEn: 'Product ready at plant, buyer arranges all transport' },
+  { id: 'FCA', name: 'FCA — Free Carrier',        desc: 'Entrega al transportista designado', descEn: 'Delivered to carrier at named place of delivery' },
+  { id: 'FOB', name: 'FOB — Free On Board',       desc: 'Puesto en el buque/avión en Buenos Aires', descEn: 'Loaded on vessel at port of origin, risk transfers to buyer' },
+  { id: 'CFR', name: 'CFR — Cost & Freight',      desc: 'FOB + flete internacional (sin seguro)', descEn: 'Freight paid to destination port, insurance by buyer' },
+  { id: 'CIF', name: 'CIF — Cost Insurance Freight', desc: 'FOB + flete internacional + seguro', descEn: 'Freight and insurance paid to destination port' },
+  { id: 'DDP', name: 'DDP — Delivered Duty Paid', desc: 'Todo incluido hasta la puerta del cliente', descEn: 'All costs included, delivered to buyer\'s door' },
 ];
 
 // Estadíos de Incoterm — qué stages de costo se acumulan.

@@ -7,7 +7,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='85'>🐟</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=6">
+  <link rel="stylesheet" href="css/style.css?v=7">
 </head>
 <body>
 
@@ -34,7 +34,7 @@
     <a href="admin.html">Admin</a>
   </div>
   <div class="nav-right">
-    <span class="nav-version">v2.4.0</span>
+    <span class="nav-version">v2.4.1</span>
     <span class="nav-user" id="nav-user"></span>
     <button class="btn-logout" id="btn-logout">Salir</button>
   </div>
@@ -235,44 +235,61 @@
 
   <!-- PÁGINA 1: INTERNA (costos) — imprime primero en PDF Costos -->
   <div class="pdf-page pdf-internal-page" id="pdf-internal-page">
-    <div class="pdf-internal-title">
-      <span>Detalle de costos — <span id="pdf-int-quote-number"></span><span id="pdf-int-alias" class="pdf-int-alias"></span></span>
-      <span class="int-sub">USO INTERNO MANILA S.A. — CONFIDENCIAL</span>
+    <!-- Header compacto -->
+    <div class="pdi-header">
+      <div class="pdi-header-left">
+        <span class="pdi-title">Detalle de Costos</span>
+        <span class="pdi-quote-num" id="pdf-int-quote-number"></span>
+        <span class="pdi-alias" id="pdf-int-alias"></span>
+      </div>
+      <div class="pdi-header-right">
+        <span class="pdi-confidential">CONFIDENCIAL</span>
+        <span class="pdi-date" id="pdi-date"></span>
+      </div>
     </div>
-    <div class="pdf-int-logistics" id="pdf-int-logistics"></div>
-    <table class="pdf-cost-table" id="pdf-cost-table">
+
+    <!-- Logistics strip -->
+    <div class="pdi-logistics" id="pdf-int-logistics"></div>
+
+    <!-- Tabla de costos (4 columnas) -->
+    <table class="pdi-table" id="pdf-cost-table">
       <thead>
         <tr>
           <th>Concepto</th>
-          <th>Fuente</th>
-          <th class="num">Valor original</th>
+          <th class="num">Detalle</th>
           <th class="num">Fijo/emb.</th>
-          <th class="num">Fijo/coti.</th>
-          <th class="num">$/kg</th>
+          <th class="num">USD/kg</th>
         </tr>
       </thead>
       <tbody id="pdf-cost-tbody"></tbody>
     </table>
-    <div class="pdf-cost-breakdown" id="pdf-cost-breakdown"></div>
-    <div class="pdf-summary-box">
-      <div class="sum-cell">
-        <div class="sum-label">Costo total</div>
-        <div class="sum-val" id="pdf-sum-cost"></div>
-        <div class="sum-sub">USD/kg</div>
+
+    <!-- Summary strip horizontal -->
+    <div class="pdi-summary" id="pdi-summary">
+      <div class="pdi-sum-cell">
+        <span class="pdi-sum-label">Costo</span>
+        <span class="pdi-sum-val" id="pdf-sum-cost"></span>
+        <span class="pdi-sum-sub">/kg</span>
       </div>
-      <div class="sum-cell">
-        <div class="sum-label">Margen aplicado</div>
-        <div class="sum-val" id="pdf-sum-margin"></div>
-        <div class="sum-sub" id="pdf-sum-margin-abs"></div>
+      <div class="pdi-sum-cell">
+        <span class="pdi-sum-label">Comisión</span>
+        <span class="pdi-sum-val" id="pdf-sum-comm"></span>
+        <span class="pdi-sum-sub">/kg</span>
       </div>
-      <div class="sum-cell">
-        <div class="sum-label">Precio final</div>
-        <div class="sum-val" id="pdf-sum-price"></div>
-        <div class="sum-sub" id="pdf-sum-price-lb"></div>
+      <div class="pdi-sum-cell">
+        <span class="pdi-sum-label">Margen</span>
+        <span class="pdi-sum-val" id="pdf-sum-margin"></span>
+        <span class="pdi-sum-sub" id="pdf-sum-margin-abs"></span>
+      </div>
+      <div class="pdi-sum-cell pdi-sum-highlight">
+        <span class="pdi-sum-label">Precio</span>
+        <span class="pdi-sum-val" id="pdf-sum-price"></span>
+        <span class="pdi-sum-sub" id="pdf-sum-price-lb"></span>
       </div>
     </div>
-    <div class="pdf-rate-note" id="pdf-rate-note"></div>
-    <div class="pdf-meta-footer" id="pdf-meta-footer"></div>
+
+    <div class="pdi-rate-note" id="pdf-rate-note"></div>
+    <div class="pdi-footer" id="pdf-meta-footer"></div>
   </div>
 
   <!-- PÁGINA 2: CLIENTE — sola en PDF Cliente, segunda en PDF Costos -->
@@ -354,9 +371,18 @@
       <div class="pdf-comments-text" id="pdf-comments-text"></div>
     </div>
 
-    <!-- Precio al final: kg y lb al mismo nivel -->
+    <!-- Incoterm banner — grande y explícito -->
+    <div class="pdf-incoterm-banner" id="pdf-incoterm-banner">
+      <div class="pdf-incoterm-id" id="pdf-incoterm-id">FOB</div>
+      <div class="pdf-incoterm-info">
+        <div class="pdf-incoterm-fullname" id="pdf-incoterm-fullname">Free On Board</div>
+        <div class="pdf-incoterm-desc" id="pdf-incoterm-desc"></div>
+        <div class="pdf-incoterm-origin" id="pdf-incoterm-origin"></div>
+      </div>
+    </div>
+
+    <!-- Precio: kg y lb al mismo nivel -->
     <div class="pdf-price-block" id="pdf-price-block">
-      <div class="pdf-incoterm-label" id="pdf-incoterm-label"></div>
       <div class="pdf-prices-row">
         <div class="pdf-price-unit">
           <span class="pdf-price-val" id="pdf-price-main">—</span>
