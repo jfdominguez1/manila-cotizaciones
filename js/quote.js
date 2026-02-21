@@ -1576,12 +1576,20 @@ async function printQuote(mode) {
     ? ` · ARS $${Math.round(marginAbsUsd * usdArsRateForMargin).toLocaleString('es-AR')}/kg`
     : '';
 
-  document.getElementById('pdf-sum-cost').textContent = `$${(calc?.totalCostPerKg ?? 0).toFixed(3)}`;
-  document.getElementById('pdf-sum-comm').textContent = `$${commPerKg.toFixed(3)}`;
+  const costPerKg = calc?.totalCostPerKg ?? 0;
+  const costPerLb = (costPerKg / 2.20462).toFixed(2);
+  const volumeKgSum = parseNum(document.getElementById('volume-kg').value) || 0;
+  const numShipSum = parseInt(document.getElementById('num-shipments').value) || 1;
+  const totalShipment = volumeKgSum > 0 ? `$${Math.round(priceKg * volumeKgSum * numShipSum).toLocaleString('es-AR')}` : '';
+
+  document.getElementById('pdf-sum-cost').textContent = `$${costPerKg.toFixed(3)}/kg`;
+  document.getElementById('pdf-sum-cost-lb').textContent = `$${costPerLb}/lb`;
+  document.getElementById('pdf-sum-comm').textContent = `$${commPerKg.toFixed(3)}/kg`;
   document.getElementById('pdf-sum-margin').textContent = `${marginPctVal}%`;
   document.getElementById('pdf-sum-margin-abs').textContent = `$${marginAbsUsd.toFixed(2)}/kg${marginArsStr}`;
   document.getElementById('pdf-sum-price').textContent = `$${priceKg.toFixed(2)}/kg`;
   document.getElementById('pdf-sum-price-lb').textContent = `$${priceLb.toFixed(2)}/lb`;
+  document.getElementById('pdf-sum-price-total').textContent = totalShipment;
 
   // Cotización del dólar
   const usdArsRate = parseNum(document.getElementById('usd-ars-rate').value) || null;
