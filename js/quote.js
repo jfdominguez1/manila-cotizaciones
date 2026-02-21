@@ -889,6 +889,8 @@ function recalculate() {
 
   const visibleStages = getVisibleStages();
   let totalCostPerKg = 0;
+  let exwCostPerKg = 0;       // Costo EXW (planta + otros) — base del margen
+  let logisticsCostPerKg = 0;  // Costos logísticos (FOB/CIF/DDP) — pass-through sin margen
 
   layers.forEach((layer, idx) => {
     const isVisible = !layer.stage || visibleStages.includes(layer.stage);
@@ -925,7 +927,15 @@ function recalculate() {
     });
 
     // Solo sumar capas visibles al total
-    if (isVisible) totalCostPerKg += layerTotal;
+    if (isVisible) {
+      totalCostPerKg += layerTotal;
+      // Separar EXW (stage=EXW o null) de logística (FOB/CIF/DDP)
+      if (layer.stage === 'EXW' || layer.stage === null) {
+        exwCostPerKg += layerTotal;
+      } else {
+        logisticsCostPerKg += layerTotal;
+      }
+    }
 
     // Actualizar total de la capa en el UI
     const totalEl = document.getElementById(`layer-total-${idx}`);
@@ -933,6 +943,7 @@ function recalculate() {
   });
 
   // Si "Fijar precio": back-calcular margen desde el precio objetivo antes de calcular comisión
+  // Margen se aplica SOLO sobre EXW; logística es pass-through
   if (lockMode === 'price') {
     const tp = parseNum(document.getElementById('target-price').value);
     if (tp > 0) {
@@ -940,15 +951,19 @@ function recalculate() {
         + (volumeKg > 0 ? ((commission.fixed_per_shipment ?? 0) * numShipments + (commission.fixed_per_quote ?? 0)) / volumeKg : 0);
       let nm;
       if (commission.base === 'cost') {
-        const base = totalCostPerKg * (1 + commission.pct / 100) + cfl;
-        nm = base > 0 ? (tp / base - 1) * 100 : 0;
+        // price = exw*(1+m) + logistics + totalCost*commPct + commFixed
+        const commOnCost = totalCostPerKg * (commission.pct / 100) + cfl;
+        nm = exwCostPerKg > 0 ? ((tp - logisticsCostPerKg - commOnCost) / exwCostPerKg - 1) * 100 : 0;
       } else if (commission.base === 'plant_exit') {
+        // price = exw*(1+m) + logistics + plantExit*(1+m)*commPct + commFixed
+        // price - logistics - commFixed = (1+m)*(exw + plantExit*commPct)
         const pe = getPlantExitCost();
-        const base = totalCostPerKg + pe * (commission.pct / 100);
-        nm = base > 0 ? ((tp - cfl) / base - 1) * 100 : 0;
+        const base = exwCostPerKg + pe * (commission.pct / 100);
+        nm = base > 0 ? ((tp - logisticsCostPerKg - cfl) / base - 1) * 100 : 0;
       } else {
+        // price*(1-commPct) = exw*(1+m) + logistics + commFixed
         const netP = tp * (1 - commission.pct / 100) - cfl;
-        nm = totalCostPerKg > 0 ? (netP / totalCostPerKg - 1) * 100 : 0;
+        nm = exwCostPerKg > 0 ? ((netP - logisticsCostPerKg) / exwCostPerKg - 1) * 100 : 0;
       }
       if (isFinite(nm) && nm >= -99) {
         marginPct = Math.max(0, nm) / 100;
@@ -967,19 +982,22 @@ function recalculate() {
   let commPerKg = 0;
   let pricePerKg = 0;
 
+  // Margen se aplica SOLO sobre EXW; logística es pass-through
+  const exwWithMargin = exwCostPerKg * (1 + marginPct);
+
   if (commission.base === 'cost') {
     // Comisión sobre costo total
     commPerKg = totalCostPerKg * (commission.pct / 100) + commFixedPerKg;
-    pricePerKg = (totalCostPerKg + commPerKg) * (1 + marginPct);
+    pricePerKg = exwWithMargin + logisticsCostPerKg + commPerKg;
   } else if (commission.base === 'plant_exit') {
     // Comisión sobre precio de salida de planta (MP + MO + Embalaje) × (1 + margen)
     const plantExitPrice = getPlantExitCost() * (1 + marginPct);
     commPerKg = plantExitPrice * (commission.pct / 100) + commFixedPerKg;
-    pricePerKg = totalCostPerKg * (1 + marginPct) + commPerKg;
+    pricePerKg = exwWithMargin + logisticsCostPerKg + commPerKg;
   } else {
     // Comisión sobre precio final de venta → álgebra inversa
-    // price = (totalCost × (1 + margin) + commFixed) / (1 - commPct/100)
-    const base = totalCostPerKg * (1 + marginPct) + commFixedPerKg;
+    // price = (exwWithMargin + logistics + commFixed) / (1 - commPct/100)
+    const base = exwWithMargin + logisticsCostPerKg + commFixedPerKg;
     pricePerKg = base / (1 - commission.pct / 100);
     commPerKg = pricePerKg * (commission.pct / 100) + commFixedPerKg;
   }
@@ -1023,7 +1041,7 @@ function recalculate() {
   // Checklist de completitud
   renderChecklist();
 
-  return { totalCostPerKg, commPerKg, pricePerKg, pricePerLb, marginPct };
+  return { totalCostPerKg, exwCostPerKg, logisticsCostPerKg, commPerKg, pricePerKg, pricePerLb, marginPct };
 }
 
 // Back-calcular margen desde precio objetivo
@@ -1036,35 +1054,46 @@ function onTargetPriceChange() {
   if (volumeKg === 0 && parseInt(numShipmentsEl2.value) > 1) numShipmentsEl2.value = 1;
   const numShipments = parseInt(numShipmentsEl2.value) || 1;
   const effectiveYield = computeEffectiveYield();
+  const visibleStages = getVisibleStages();
 
   let totalCost = 0;
+  let exwCost = 0;
+  let logisticsCost = 0;
   layers.forEach(layer => {
+    const isVisible = !layer.stage || visibleStages.includes(layer.stage);
+    let layerTotal = 0;
     layer.items.forEach(item => {
       const cost = calcItemCostPerKg(item, volumeKg, numShipments);
-      totalCost += layer.applies_yield && effectiveYield > 0 ? cost / effectiveYield : cost;
+      layerTotal += layer.applies_yield && effectiveYield > 0 ? cost / effectiveYield : cost;
     });
+    if (isVisible) {
+      totalCost += layerTotal;
+      if (layer.stage === 'EXW' || layer.stage === null) {
+        exwCost += layerTotal;
+      } else {
+        logisticsCost += layerTotal;
+      }
+    }
   });
 
   const commFixedPerKg = (commission.fixed_per_kg ?? 0)
     + (volumeKg > 0 ? ((commission.fixed_per_shipment ?? 0) * numShipments + (commission.fixed_per_quote ?? 0)) / volumeKg : 0);
 
+  // Margen se aplica SOLO sobre EXW; logística es pass-through
   let newMargin;
   if (commission.base === 'cost') {
-    // precio = (costo + comisión_costo) × (1 + margen)
-    // precio = costo × (1 + commPct/100) × (1 + margen) + commFijo × (1 + margen)
-    const commRate = 1 + commission.pct / 100;
-    const base = totalCost * commRate + commFixedPerKg;
-    newMargin = base > 0 ? (targetPrice / base - 1) * 100 : 0;
+    // price = exw*(1+m) + logistics + totalCost*commPct + commFixed
+    const commOnCost = totalCost * (commission.pct / 100) + commFixedPerKg;
+    newMargin = exwCost > 0 ? ((targetPrice - logisticsCost - commOnCost) / exwCost - 1) * 100 : 0;
   } else if (commission.base === 'plant_exit') {
-    // precio = totalCosto × (1 + margen) + plantExit × (1 + margen) × commPct/100 + commFijo
-    // precio = (1 + margen) × (totalCosto + plantExit × commPct/100) + commFijo
+    // price = exw*(1+m) + logistics + plantExit*(1+m)*commPct + commFixed
     const plantExit = getPlantExitCost();
-    const base = totalCost + plantExit * (commission.pct / 100);
-    newMargin = base > 0 ? ((targetPrice - commFixedPerKg) / base - 1) * 100 : 0;
+    const base = exwCost + plantExit * (commission.pct / 100);
+    newMargin = base > 0 ? ((targetPrice - logisticsCost - commFixedPerKg) / base - 1) * 100 : 0;
   } else {
-    // precio × (1 - commPct/100) = totalCosto × (1 + margen) + commFijo
+    // price*(1-commPct) = exw*(1+m) + logistics + commFixed
     const netPrice = targetPrice * (1 - commission.pct / 100) - commFixedPerKg;
-    newMargin = totalCost > 0 ? (netPrice / totalCost - 1) * 100 : 0;
+    newMargin = exwCost > 0 ? ((netPrice - logisticsCost) / exwCost - 1) * 100 : 0;
   }
 
   if (isFinite(newMargin) && newMargin >= -99) {
@@ -1306,6 +1335,18 @@ function renderSummary(layers, totalCost, commPerKg, marginPct, pricePerKg, volu
     }
   }
 
+  // Separar EXW de logística para mostrar margen correctamente
+  let exwCostSum = 0;
+  let logisticsCostSum = 0;
+  layers.forEach(l => {
+    const isVis = !l.stage || visibleStages.includes(l.stage);
+    if (!isVis) return;
+    const lt = l.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0);
+    if (l.stage === 'EXW' || l.stage === null) exwCostSum += lt;
+    else logisticsCostSum += lt;
+  });
+  const marginAmount = exwCostSum * marginPct;
+
   html += `<div class="cost-summary-row separator">
     <span class="label">Subtotal costos</span>
     <span class="value">$${totalCost.toFixed(3)}/kg</span>
@@ -1319,8 +1360,8 @@ function renderSummary(layers, totalCost, commPerKg, marginPct, pricePerKg, volu
   }
 
   html += `<div class="cost-summary-row">
-    <span class="label">Margen (${(marginPct * 100).toFixed(1)}%)</span>
-    <span class="value">$${(pricePerKg - totalCost - commPerKg).toFixed(3)}/kg</span>
+    <span class="label">Margen (${(marginPct * 100).toFixed(1)}% s/EXW)</span>
+    <span class="value">$${marginAmount.toFixed(3)}/kg</span>
   </div>`;
 
   container.innerHTML = html;
@@ -1570,7 +1611,7 @@ async function printQuote(mode) {
   // Summary strip
   const commPerKg = calc?.commPerKg ?? 0;
   const marginPctVal = parseNum(document.getElementById('margin-pct').value) || 0;
-  const marginAbsUsd = priceKg - (calc?.totalCostPerKg ?? 0) - commPerKg;
+  const marginAbsUsd = (calc?.exwCostPerKg ?? 0) * (marginPctVal / 100);
   const usdArsRateForMargin = parseNum(document.getElementById('usd-ars-rate').value) || 0;
   const marginArsStr = usdArsRateForMargin > 0
     ? ` · ARS $${Math.round(marginAbsUsd * usdArsRateForMargin).toLocaleString('es-AR')}/kg`
@@ -1738,7 +1779,7 @@ function buildInternalTable(calc = null) {
 
   // Margen + Precio final rows
   if (calc) {
-    const marginAmount = calc.pricePerKg - calc.totalCostPerKg - (calc.commPerKg ?? 0);
+    const marginAmount = (calc.exwCostPerKg ?? 0) * calc.marginPct;
 
     const totalRow = document.createElement('tr');
     totalRow.className = 'pdi-subtotal';
@@ -1746,7 +1787,7 @@ function buildInternalTable(calc = null) {
     tbody.appendChild(totalRow);
 
     const marginRow = document.createElement('tr');
-    marginRow.innerHTML = `<td colspan="3">Margen (${(calc.marginPct * 100).toFixed(1)}%)</td><td class="num">+$${marginAmount.toFixed(4)}</td>`;
+    marginRow.innerHTML = `<td colspan="3">Margen (${(calc.marginPct * 100).toFixed(1)}% s/EXW)</td><td class="num">+$${marginAmount.toFixed(4)}</td>`;
     tbody.appendChild(marginRow);
 
     const priceRow = document.createElement('tr');
