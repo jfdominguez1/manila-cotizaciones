@@ -55,25 +55,43 @@ export const INCOTERMS = [
   { id: 'DDP', name: 'DDP — Delivered Duty Paid', desc: 'Todo incluido hasta la puerta del cliente' },
 ];
 
-// Capas que el vendedor debe cubrir según el Incoterm.
-// Materia Prima, Proceso y Embalaje son siempre del vendedor — solo se chequean las variables.
-export const INCOTERM_LAYERS = {
-  EXW: { required: [],                          hint: 'El comprador retira en planta — sin flete ni exportación a cargo del vendedor' },
-  FCA: { required: ['transport'],               hint: 'Incluye transporte hasta el carrier designado' },
-  FOB: { required: ['transport', 'export'],     hint: 'Incluye transporte interno + costos de exportación hasta el buque' },
-  CFR: { required: ['transport', 'export'],     hint: 'Incluye flete internacional — verificá que esté en Costos de Exportación' },
-  CIF: { required: ['transport', 'export'],     hint: 'Incluye flete + seguro internacional — verificá que estén en Costos de Exportación' },
-  DDP: { required: ['transport', 'export'],     hint: 'Incluye todo hasta destino — no olvidés aranceles e impuestos en destino' },
+// Estadíos de Incoterm — qué stages de costo se acumulan.
+// EXW (capas de planta) siempre incluido.
+export const INCOTERM_STAGES = {
+  EXW: ['EXW'],
+  FCA: ['EXW', 'FOB'],
+  FOB: ['EXW', 'FOB'],
+  CFR: ['EXW', 'FOB', 'CIF'],
+  CIF: ['EXW', 'FOB', 'CIF'],
+  DDP: ['EXW', 'FOB', 'CIF', 'DDP'],
 };
 
-// Capas de costo en orden. applies_yield: true → el costo MP se divide por el rendimiento
+// Ítems default para cada stage (se pre-cargan al seleccionar un Incoterm que los requiere)
+export const STAGE_DEFAULT_ITEMS = {
+  FOB: [
+    { name: 'Carga en origen' },
+    { name: 'Despacho exportación' },
+  ],
+  CIF: [
+    { name: 'Flete internacional' },
+    { name: 'Seguro' },
+  ],
+  DDP: [
+    { name: 'Gastos en destino' },
+    { name: 'Aranceles / Impuestos' },
+  ],
+};
+
+// Capas de costo en orden. applies_yield: true → el costo MP se divide por el rendimiento.
+// stage: a qué estadío de Incoterm pertenece la capa (null = siempre visible).
 export const COST_LAYERS = [
-  { id: 'raw_material', name: 'Materia Prima',          applies_yield: true },
-  { id: 'processing',   name: 'Proceso en Planta',      applies_yield: false },
-  { id: 'packaging',    name: 'Materiales y Embalaje',  applies_yield: false },
-  { id: 'transport',    name: 'Transporte Interno',     applies_yield: false },
-  { id: 'export',       name: 'Costos de Exportación',  applies_yield: false },
-  { id: 'other',        name: 'Otros',                  applies_yield: false },
+  { id: 'raw_material', name: 'Materia Prima',          applies_yield: true,  stage: 'EXW' },
+  { id: 'processing',   name: 'Proceso en Planta',      applies_yield: false, stage: 'EXW' },
+  { id: 'packaging',    name: 'Materiales y Embalaje',  applies_yield: false, stage: 'EXW' },
+  { id: 'fob',          name: 'Costos FOB',             applies_yield: false, stage: 'FOB' },
+  { id: 'cif',          name: 'Costos CIF',             applies_yield: false, stage: 'CIF' },
+  { id: 'ddp',          name: 'Costos DDP',             applies_yield: false, stage: 'DDP' },
+  { id: 'other',        name: 'Otros',                  applies_yield: false, stage: null },
 ];
 
 // Unidades de costo variable disponibles

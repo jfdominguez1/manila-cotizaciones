@@ -485,7 +485,7 @@ function createItemRow(layerIdx, itemIdx) {
   const needsUnitKg = COST_UNITS.find(u => u.id === item.variable_unit)?.needs_unit_kg ?? false;
   const isArs = item.currency === 'ARS';
   if (isArs) row.classList.add('ars-item');
-  const nameReadonly = item.mandatory ? 'readonly' : '';
+  const nameReadonly = '';
 
   row.innerHTML = `
     <div class="cost-item-row1">

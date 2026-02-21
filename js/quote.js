@@ -3,7 +3,7 @@ import { db, storage } from './firebase.js';
 import {
   ref, uploadBytes, getDownloadURL
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js';
-import { BRANDS, CERTIFICATIONS, INCOTERMS, COST_LAYERS, COST_UNITS, CONTACT, INCOTERM_LAYERS, MANDATORY_ITEMS, buildMandatoryItems, parseNum } from './config.js';
+import { BRANDS, CERTIFICATIONS, INCOTERMS, COST_LAYERS, COST_UNITS, CONTACT, INCOTERM_STAGES, STAGE_DEFAULT_ITEMS, MANDATORY_ITEMS, buildMandatoryItems, parseNum } from './config.js';
 import {
   collection, doc, getDoc, getDocs, setDoc, updateDoc, runTransaction
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
@@ -35,6 +35,7 @@ let layers = initLayersWithMandatory();
 let commission = {
   pct: 0,
   base: 'cost',
+  fixed_per_kg: 0,
   fixed_per_shipment: 0,
   fixed_per_quote: 0
 };
@@ -190,12 +191,19 @@ function populateFromData(data, isCopy = false) {
 
   // Comisión ANTES de renderLayers para que se renderice con valores correctos
   if (data.commission) {
-    commission = { ...data.commission };
+    commission = { pct: 0, base: 'cost', fixed_per_kg: 0, fixed_per_shipment: 0, fixed_per_quote: 0, ...data.commission };
   }
 
   if (data.cost_layers) {
     layers = COST_LAYERS.map(l => {
-      const saved = data.cost_layers.find(sl => sl.layer_id === l.id);
+      let saved = data.cost_layers.find(sl => sl.layer_id === l.id);
+      // Migración: cotizaciones viejas con transport/export → fob
+      if (l.id === 'fob' && !saved) {
+        const transportItems = data.cost_layers.find(sl => sl.layer_id === 'transport')?.items ?? [];
+        const exportItems = data.cost_layers.find(sl => sl.layer_id === 'export')?.items ?? [];
+        const mergedItems = [...transportItems, ...exportItems];
+        if (mergedItems.length) saved = { items: mergedItems };
+      }
       return {
         ...l,
         items: saved ? saved.items.map(item => ({ ...item })) : []
@@ -223,12 +231,14 @@ function populateFromData(data, isCopy = false) {
 // ============================================================
 function populateIncoterms() {
   const sel = document.getElementById('incoterm-select');
+  sel.innerHTML = '';
   INCOTERMS.forEach(inc => {
     const opt = document.createElement('option');
     opt.value = inc.id;
     opt.textContent = inc.name;
     sel.appendChild(opt);
   });
+  sel.value = 'EXW'; // Default obligatorio
 }
 
 // ============================================================
@@ -245,7 +255,7 @@ function bindPanelEvents() {
   panelInputs.forEach(id => {
     document.getElementById(id).addEventListener('input', recalculate);
   });
-  document.getElementById('incoterm-select').addEventListener('change', recalculate);
+  document.getElementById('incoterm-select').addEventListener('change', onIncotermChange);
   document.getElementById('target-price').addEventListener('input', onTargetPriceChange);
 
   // Toggle fijar margen / fijar precio
@@ -410,16 +420,70 @@ function renderCertPicker(product) {
 }
 
 // ============================================================
+// INCOTERM STAGES — visibilidad de capas
+// ============================================================
+function getVisibleStages() {
+  const incotermId = document.getElementById('incoterm-select')?.value || 'EXW';
+  return INCOTERM_STAGES[incotermId] || ['EXW'];
+}
+
+function getStageFormula(stage) {
+  switch(stage) {
+    case 'FOB': return 'EXW + estos costos = FOB';
+    case 'CIF': return 'FOB + estos costos = CIF';
+    case 'DDP': return 'CIF + estos costos = DDP';
+    default: return '';
+  }
+}
+
+function onIncotermChange() {
+  const visibleStages = getVisibleStages();
+
+  // Pre-populate default items for newly visible stage layers
+  visibleStages.forEach(stage => {
+    if (stage === 'EXW') return;
+    const defaults = STAGE_DEFAULT_ITEMS[stage];
+    if (!defaults) return;
+    const layer = layers.find(l => l.stage === stage);
+    if (layer && layer.items.length === 0) {
+      defaults.forEach(d => {
+        layer.items.push({
+          name: d.name,
+          source: 'manual',
+          table_ref: null,
+          currency: 'USD',
+          variable_value: 0,
+          variable_unit: 'kg',
+          variable_unit_kg: null,
+          fixed_per_shipment: 0,
+          fixed_per_quote: 0,
+          cost_per_kg_calc: 0,
+          notes: '',
+        });
+      });
+    }
+  });
+
+  renderLayers();
+  recalculate();
+}
+
+// ============================================================
 // RENDER CAPAS DE COSTO
 // ============================================================
 function renderLayers() {
   const container = document.getElementById('layers-container');
   container.innerHTML = '';
+  const visibleStages = getVisibleStages();
 
   layers.forEach((layer, layerIdx) => {
+    const isVisible = !layer.stage || visibleStages.includes(layer.stage);
+
     const section = document.createElement('div');
     section.className = 'layer-section';
+    if (layer.stage && layer.stage !== 'EXW') section.classList.add('stage-layer');
     section.dataset.layer = layerIdx;
+    if (!isVisible) section.style.display = 'none';
 
     const yieldBadge = layer.applies_yield
       ? `<span class="layer-yield-badge" id="materia-prima-yield-badge">ajustado por rendimiento</span>`
@@ -429,11 +493,15 @@ function renderLayers() {
       ? `<span class="layer-yield-effective" id="processing-yield-display">Rdto: —</span><div id="yield-warning" class="yield-warning" style="display:none"></div>`
       : '';
 
+    const stageHint = (layer.stage && layer.stage !== 'EXW')
+      ? `<span class="stage-hint-badge">${getStageFormula(layer.stage)}</span>`
+      : '';
+
     section.innerHTML = `
       <div class="layer-header" data-layer="${layerIdx}">
         <span class="layer-toggle">▼</span>
         <h3>${layer.name}</h3>
-        ${yieldBadge}${processingYieldSlot}
+        ${stageHint}${yieldBadge}${processingYieldSlot}
         <span class="layer-total" id="layer-total-${layerIdx}">$0.00/kg</span>
       </div>
       <div class="layer-body" id="layer-body-${layerIdx}">
@@ -502,7 +570,7 @@ function createItemRow(layerIdx, itemIdx) {
   const needsUnitKg = COST_UNITS.find(u => u.id === item.variable_unit)?.needs_unit_kg ?? false;
   const isArs = item.currency === 'ARS';
   if (isArs) row.classList.add('ars-item');
-  const nameReadonly = item.mandatory ? 'readonly' : '';
+  const nameReadonly = '';
 
   row.innerHTML = `
     <div class="cost-item-row1">
@@ -713,24 +781,24 @@ function renderCommissionSection(container) {
         </select>
       </div>
       <div>
-        <label>Fijo/embarque ($)</label>
-        <input type="text" inputmode="decimal" id="comm-fixed-ship" value="${commission.fixed_per_shipment}" placeholder="0">
+        <label>Fijo/kg ($)</label>
+        <input type="text" inputmode="decimal" id="comm-fixed-kg" value="${commission.fixed_per_kg}" placeholder="0">
       </div>
       <div>
-        <label>Fijo/cotización ($)</label>
-        <input type="text" inputmode="decimal" id="comm-fixed-quote" value="${commission.fixed_per_quote}" placeholder="0">
+        <label>Fijo/embarque ($)</label>
+        <input type="text" inputmode="decimal" id="comm-fixed-ship" value="${commission.fixed_per_shipment}" placeholder="0">
       </div>
     </div>
   `;
 
   wrap.appendChild(section);
 
-  ['comm-pct', 'comm-base', 'comm-fixed-ship', 'comm-fixed-quote'].forEach(id => {
+  ['comm-pct', 'comm-base', 'comm-fixed-kg', 'comm-fixed-ship'].forEach(id => {
     document.getElementById(id).addEventListener('input', () => {
       commission.pct = parseNum(document.getElementById('comm-pct').value) || 0;
       commission.base = document.getElementById('comm-base').value;
+      commission.fixed_per_kg = parseNum(document.getElementById('comm-fixed-kg').value) || 0;
       commission.fixed_per_shipment = parseNum(document.getElementById('comm-fixed-ship').value) || 0;
-      commission.fixed_per_quote = parseNum(document.getElementById('comm-fixed-quote').value) || 0;
       recalculate();
     });
   });
@@ -819,9 +887,11 @@ function recalculate() {
     if (rateLabel) rateLabel.classList.remove('rate-warning-label');
   }
 
+  const visibleStages = getVisibleStages();
   let totalCostPerKg = 0;
 
   layers.forEach((layer, idx) => {
+    const isVisible = !layer.stage || visibleStages.includes(layer.stage);
     let layerTotal = 0;
 
     layer.items.forEach((item, itemIdx) => {
@@ -834,25 +904,28 @@ function recalculate() {
       item.cost_per_kg_calc = adjusted;
       layerTotal += adjusted;
 
-      // Actualizar resultado visual por ítem
-      const resultEl = document.querySelector(`[data-result="${idx}-${itemIdx}"]`);
-      if (resultEl) {
-        if (item.currency === 'ARS') {
-          const arsStr = rawAdjARS.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-          if (usdArsRate > 0) {
-            resultEl.innerHTML = `<span class="ars-raw">ARS $${arsStr}/kg</span><span class="ars-usd">→ $${adjusted.toFixed(3)}/kg</span>`;
+      // Actualizar resultado visual por ítem (solo si visible)
+      if (isVisible) {
+        const resultEl = document.querySelector(`[data-result="${idx}-${itemIdx}"]`);
+        if (resultEl) {
+          if (item.currency === 'ARS') {
+            const arsStr = rawAdjARS.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (usdArsRate > 0) {
+              resultEl.innerHTML = `<span class="ars-raw">ARS $${arsStr}/kg</span><span class="ars-usd">→ $${adjusted.toFixed(3)}/kg</span>`;
+            } else {
+              resultEl.innerHTML = `<span class="ars-raw">ARS $${arsStr}/kg</span><span class="ars-notc">⚠ sin TC</span>`;
+            }
+            resultEl.classList.remove('na');
           } else {
-            resultEl.innerHTML = `<span class="ars-raw">ARS $${arsStr}/kg</span><span class="ars-notc">⚠ sin TC</span>`;
+            resultEl.textContent = `$${adjusted.toFixed(3)}/kg`;
+            resultEl.classList.toggle('na', adjusted === 0);
           }
-          resultEl.classList.remove('na');
-        } else {
-          resultEl.textContent = `$${adjusted.toFixed(3)}/kg`;
-          resultEl.classList.toggle('na', adjusted === 0);
         }
       }
     });
 
-    totalCostPerKg += layerTotal;
+    // Solo sumar capas visibles al total
+    if (isVisible) totalCostPerKg += layerTotal;
 
     // Actualizar total de la capa en el UI
     const totalEl = document.getElementById(`layer-total-${idx}`);
@@ -863,9 +936,8 @@ function recalculate() {
   if (lockMode === 'price') {
     const tp = parseNum(document.getElementById('target-price').value);
     if (tp > 0) {
-      const cfl = volumeKg > 0
-        ? (commission.fixed_per_shipment * numShipments + commission.fixed_per_quote) / volumeKg
-        : 0;
+      const cfl = (commission.fixed_per_kg ?? 0)
+        + (volumeKg > 0 ? ((commission.fixed_per_shipment ?? 0) * numShipments + (commission.fixed_per_quote ?? 0)) / volumeKg : 0);
       let nm;
       if (commission.base === 'cost') {
         const base = totalCostPerKg * (1 + commission.pct / 100) + cfl;
@@ -889,9 +961,8 @@ function recalculate() {
   }
 
   // Comisión
-  const commFixedPerKg = volumeKg > 0
-    ? (commission.fixed_per_shipment * numShipments + commission.fixed_per_quote) / volumeKg
-    : 0;
+  const commFixedPerKg = (commission.fixed_per_kg ?? 0)
+    + (volumeKg > 0 ? ((commission.fixed_per_shipment ?? 0) * numShipments + (commission.fixed_per_quote ?? 0)) / volumeKg : 0);
 
   let commPerKg = 0;
   let pricePerKg = 0;
@@ -943,8 +1014,8 @@ function recalculate() {
     targetPriceEl.value = pricePerKg > 0 ? pricePerKg.toFixed(2) : '';
   }
 
-  // Checklist Incoterm
-  renderIncotermCoverage();
+  // Checklist Incoterm — pasar visibleStages
+  renderIncotermCoverage(visibleStages);
 
   // Advertencias de incoherencia
   renderWarnings(effectiveYield, totalCostPerKg, marginPct);
@@ -974,9 +1045,8 @@ function onTargetPriceChange() {
     });
   });
 
-  const commFixedPerKg = volumeKg > 0
-    ? (commission.fixed_per_shipment * numShipments + commission.fixed_per_quote) / volumeKg
-    : 0;
+  const commFixedPerKg = (commission.fixed_per_kg ?? 0)
+    + (volumeKg > 0 ? ((commission.fixed_per_shipment ?? 0) * numShipments + (commission.fixed_per_quote ?? 0)) / volumeKg : 0);
 
   let newMargin;
   if (commission.base === 'cost') {
@@ -1115,103 +1185,117 @@ function hasArsItems() {
   return layers.some(l => l.items.some(i => i.currency === 'ARS'));
 }
 
-function renderIncotermCoverage() {
+function renderIncotermCoverage(visibleStages) {
   const container = document.getElementById('incoterm-coverage');
   if (!container) return;
   const incotermId = document.getElementById('incoterm-select').value;
   if (!incotermId) { container.innerHTML = ''; return; }
 
-  const def = INCOTERM_LAYERS[incotermId];
-  if (!def) { container.innerHTML = ''; return; }
+  const stages = visibleStages || getVisibleStages();
+  const nonEwxStages = stages.filter(s => s !== 'EXW');
 
-  // Verificar capas requeridas
-  const checks = def.required.map(layerId => {
-    const layer = layers.find(l => l.id === layerId);
-    const hasItems = layer?.items?.length > 0;
-    const layerName = layer?.name ?? layerId;
-    return { layerName, hasItems };
-  });
-
-  const allOk = checks.every(c => c.hasItems);
-  const hasRequired = def.required.length > 0;
-
-  let html = `<div class="incoterm-coverage">`;
-  html += `<div class="incoterm-hint">${def.hint}</div>`;
-
-  if (hasRequired) {
-    html += `<div class="incoterm-checklist">`;
-    checks.forEach(({ layerName, hasItems }) => {
-      html += `<span class="incoterm-check ${hasItems ? 'ok' : 'missing'}">
-        ${hasItems ? '✓' : '⚠'} ${layerName}
-      </span>`;
-    });
-    html += `</div>`;
+  if (nonEwxStages.length === 0) {
+    container.innerHTML = `<div class="incoterm-coverage"><div class="incoterm-hint">EXW — Producto listo en planta, costos de flete y exportación a cargo del comprador.</div></div>`;
+    return;
   }
 
-  html += `</div>`;
+  // Verificar que cada stage requerido tenga al menos 1 ítem con costo
+  const checks = nonEwxStages.map(stage => {
+    const layer = layers.find(l => l.stage === stage);
+    const hasItems = layer?.items?.some(i =>
+      (i.variable_value > 0) || (i.fixed_per_shipment > 0) || (i.fixed_per_quote > 0)
+    ) ?? false;
+    return { stage, layerName: layer?.name ?? stage, hasItems };
+  });
+
+  let html = `<div class="incoterm-coverage">`;
+  html += `<div class="incoterm-hint">${incotermId} — Costos acumulados hasta este nivel.</div>`;
+  html += `<div class="incoterm-checklist">`;
+  checks.forEach(({ stage, layerName, hasItems }) => {
+    html += `<span class="incoterm-check ${hasItems ? 'ok' : 'missing'}">
+      ${hasItems ? '✓' : '⚠'} ${layerName}
+    </span>`;
+  });
+  html += `</div></div>`;
   container.innerHTML = html;
 }
 
 function renderSummary(layers, totalCost, commPerKg, marginPct, pricePerKg, volumeKg, usdArsRate = 0) {
   const container = document.getElementById('cost-summary');
   let html = '';
-
+  const visibleStages = getVisibleStages();
   const effectiveYield = computeEffectiveYield();
-  const mpTotal   = layers.find(l => l.id === 'raw_material')?.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0) ?? 0;
-  const procTotal = layers.find(l => l.id === 'processing')?.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0) ?? 0;
-  const productionSubtotal = mpTotal + procTotal;
-
-  // Totales en $ — "Costo de mercadería" (solo cuando hay volumen ingresado)
   const hasVol = volumeKg > 0;
-  const mpRawAmt = hasVol ? mpTotal * effectiveYield * volumeKg : 0;  // costo bruto del pescado
-  const mpAdjAmt = hasVol ? mpTotal * volumeKg : 0;                   // costo MP ajustado por rdto
-  const procAmt  = hasVol ? procTotal * volumeKg : 0;                 // costo proceso total
-  const mercAmt  = mpAdjAmt + procAmt;                                 // costo de mercadería total
   const fmtAmt = (v) => '$' + Math.round(v).toLocaleString('es-AR');
+  const fmtLb = (perKg) => (perKg / 2.20462).toFixed(2);
 
-  layers.forEach(l => {
-    const layerTotal = l.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0);
-    if (layerTotal === 0 && l.items.length === 0) return;
+  // Calcular subtotales por stage acumulativo
+  const stageOrder = ['EXW', 'FOB', 'CIF', 'DDP'];
+  let accumulated = 0;
 
-    if (l.id === 'raw_material' && mpTotal > 0 && effectiveYield < 1) {
-      const mpRaw = mpTotal * effectiveYield;
-      html += `<div class="cost-summary-row">
-        <span class="label">Materia Prima
-          <em class="yield-annotation">$${mpRaw.toFixed(3)} ÷ ${(effectiveYield * 100).toFixed(1)}%</em>
-        </span>
-        <div class="value-stack">
-          <span class="value">$${mpTotal.toFixed(3)}/kg</span>
-          ${hasVol ? `<em class="total-annotation">${fmtAmt(mpRawAmt)} → <strong>${fmtAmt(mpAdjAmt)}</strong></em>` : ''}
-        </div>
-      </div>`;
-    } else {
-      const showTotal = (l.id === 'raw_material' || l.id === 'processing') && hasVol && layerTotal > 0;
-      const layerAmt  = l.id === 'processing' ? procAmt : (hasVol ? layerTotal * volumeKg : 0);
-      html += `<div class="cost-summary-row">
-        <span class="label">${l.name}</span>
-        ${showTotal
-          ? `<div class="value-stack"><span class="value">$${layerTotal.toFixed(3)}/kg</span><em class="total-annotation">${fmtAmt(layerAmt)}</em></div>`
-          : `<span class="value">$${layerTotal.toFixed(3)}/kg</span>`}
-      </div>`;
+  stageOrder.forEach(stage => {
+    if (!visibleStages.includes(stage)) return;
+
+    const stageLayers = layers.filter(l => l.stage === stage);
+    let stageTotal = 0;
+
+    stageLayers.forEach(l => {
+      const layerTotal = l.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0);
+      if (layerTotal === 0 && l.items.length === 0) return;
+
+      // Detalle especial para MP con yield
+      if (l.id === 'raw_material' && layerTotal > 0 && effectiveYield < 1) {
+        const mpRaw = layerTotal * effectiveYield;
+        html += `<div class="cost-summary-row">
+          <span class="label">Materia Prima
+            <em class="yield-annotation">$${mpRaw.toFixed(3)} ÷ ${(effectiveYield * 100).toFixed(1)}%</em>
+          </span>
+          <span class="value">$${layerTotal.toFixed(3)}/kg</span>
+        </div>`;
+      } else {
+        html += `<div class="cost-summary-row">
+          <span class="label">${l.name}</span>
+          <span class="value">$${layerTotal.toFixed(3)}/kg</span>
+        </div>`;
+      }
+      stageTotal += layerTotal;
+    });
+
+    // Otros (stage=null) se suman al EXW
+    if (stage === 'EXW') {
+      const otherLayer = layers.find(l => l.stage === null);
+      if (otherLayer) {
+        const otherTotal = otherLayer.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0);
+        if (otherTotal > 0 || otherLayer.items.length > 0) {
+          html += `<div class="cost-summary-row">
+            <span class="label">${otherLayer.name}</span>
+            <span class="value">$${otherTotal.toFixed(3)}/kg</span>
+          </div>`;
+          stageTotal += otherTotal;
+        }
+      }
     }
 
-    // Subtotal de mercadería tras Proceso en Planta
-    if (l.id === 'processing' && (mpTotal > 0 || procTotal > 0)) {
-      html += `<div class="cost-summary-row production-subtotal">
-        <span class="label">↳ Costo Mercadería+MO</span>
+    accumulated += stageTotal;
+
+    // Subtotal del stage con /kg, /lb, total
+    if (stageTotal > 0 || stage === 'EXW') {
+      const totalAmt = hasVol ? accumulated * volumeKg : 0;
+      html += `<div class="cost-summary-row stage-subtotal">
+        <span class="label"><strong>${stage}</strong></span>
         <div class="value-stack">
-          <span class="value">$${productionSubtotal.toFixed(3)}/kg</span>
-          ${hasVol ? `<em class="total-annotation">${fmtAmt(mercAmt)}</em>` : ''}
+          <span class="value">$${accumulated.toFixed(3)}/kg · $${fmtLb(accumulated)}/lb</span>
+          ${hasVol ? `<em class="total-annotation">${fmtAmt(totalAmt)} total</em>` : ''}
         </div>
       </div>`;
     }
   });
 
-  // Nota tipo de cambio si hay ítems en ARS
+  // Nota tipo de cambio
   if (hasArsItems()) {
     if (usdArsRate > 0) {
       html += `<div class="cost-summary-row ars-rate-note">
-        <span class="label">💱 TC ARS/USD</span>
+        <span class="label">TC ARS/USD</span>
         <span class="value">$${usdArsRate.toLocaleString('es-AR')}/USD</span>
       </div>`;
     } else {
@@ -1320,8 +1404,14 @@ async function confirmQuote() {
     showToast('Completá el nombre del cliente antes de confirmar', true);
     return;
   }
-  if (!document.getElementById('incoterm-select').value) {
-    showToast('Seleccioná el Incoterm antes de confirmar', true);
+  // Validar que los stages de incoterm tengan al menos 1 ítem con costo
+  const visStages = getVisibleStages();
+  const stagesWithoutCost = visStages.filter(s => s !== 'EXW').filter(stage => {
+    const layer = layers.find(l => l.stage === stage);
+    return !layer?.items?.some(i => (i.variable_value > 0) || (i.fixed_per_shipment > 0) || (i.fixed_per_quote > 0));
+  });
+  if (stagesWithoutCost.length) {
+    showToast(`Faltan costos en: ${stagesWithoutCost.join(', ')}. Cada estadío necesita al menos 1 ítem con costo.`, true);
     return;
   }
   if (hasArsItems() && !(parseNum(document.getElementById('usd-ars-rate').value) > 0)) {
@@ -1468,7 +1558,11 @@ async function printQuote(mode) {
   const marginPctVal = parseNum(document.getElementById('margin-pct').value) || 0;
   const marginAbsUsd = priceKg - (calc?.totalCostPerKg ?? 0);
   document.getElementById('pdf-sum-margin').textContent = `${marginPctVal}%`;
-  document.getElementById('pdf-sum-margin-abs').textContent = `$${marginAbsUsd.toFixed(2)} USD/kg`;
+  const usdArsRateForMargin = parseNum(document.getElementById('usd-ars-rate').value) || 0;
+  const marginArsStr = usdArsRateForMargin > 0
+    ? ` · ARS $${Math.round(marginAbsUsd * usdArsRateForMargin).toLocaleString('es-AR')}/kg`
+    : '';
+  document.getElementById('pdf-sum-margin-abs').textContent = `$${marginAbsUsd.toFixed(2)} USD/kg${marginArsStr}`;
   document.getElementById('pdf-sum-price').textContent = `$${priceKg.toFixed(2)}`;
   document.getElementById('pdf-sum-price-lb').textContent = `$${priceLb.toFixed(2)}/lb`;
   // Cotización del dólar
@@ -1533,100 +1627,131 @@ async function printQuote(mode) {
 function buildInternalTable(calc = null) {
   const tbody = document.getElementById('pdf-cost-tbody');
   tbody.innerHTML = '';
+  const visibleStages = getVisibleStages();
+  const ey = computeEffectiveYield();
+  const pdfVol = parseNum(document.getElementById('volume-kg').value) || 0;
+  const pdfHasVol = pdfVol > 0;
+  const pdfFmt = (v) => '$' + Math.round(v).toLocaleString('es-AR');
 
-  layers.forEach(layer => {
-    if (layer.items.length === 0) return;
+  const stageOrder = ['EXW', 'FOB', 'CIF', 'DDP'];
+  let accumulated = 0;
 
-    const layerRow = document.createElement('tr');
-    layerRow.className = 'layer-title';
-    const ey = computeEffectiveYield();
-    const yieldNote = layer.applies_yield && ey < 1
-      ? ` (÷ ${(ey * 100).toFixed(1)}% rdto → ×${(1/ey).toFixed(2)})`
-      : '';
-    layerRow.innerHTML = `<td colspan="6">${layer.name}${yieldNote}</td>`;
-    tbody.appendChild(layerRow);
+  stageOrder.forEach(stage => {
+    if (!visibleStages.includes(stage)) return;
 
-    let layerTotal = 0;
-    const layerHasArs = layer.items.some(i => i.currency === 'ARS');
-    layer.items.forEach(item => {
-      const tr = document.createElement('tr');
-      const unitLabel = COST_UNITS.find(u => u.id === item.variable_unit)?.label ?? item.variable_unit;
-      const cur = item.currency === 'ARS' ? 'ARS $' : 'USD';
-      const curBadge = `<span style="font-size:8pt;font-weight:700;padding:1px 4px;border-radius:3px;background:${item.currency === 'ARS' ? '#fef3cd' : '#dce9f0'};color:${item.currency === 'ARS' ? '#7c5a00' : '#365A6E'}">${cur}</span>`;
-      tr.innerHTML = `
-        <td>${item.name || '—'}</td>
-        <td>${item.source === 'table' ? 'Tabla' : 'Manual'} ${curBadge}</td>
-        <td class="num">${(item.variable_value ?? 0).toFixed(2)} ${unitLabel}</td>
-        <td class="num">${item.fixed_per_shipment ? (item.currency === 'ARS' ? 'ARS $' : '$') + item.fixed_per_shipment.toFixed(2) : '—'}</td>
-        <td class="num">${item.fixed_per_quote ? (item.currency === 'ARS' ? 'ARS $' : '$') + item.fixed_per_quote.toFixed(2) : '—'}</td>
-        <td class="num">$${(item.cost_per_kg_calc ?? 0).toFixed(4)}</td>
-      `;
-      tbody.appendChild(tr);
-      layerTotal += item.cost_per_kg_calc ?? 0;
+    const stageLayers = layers.filter(l => l.stage === stage);
+    // Incluir 'other' en EXW
+    if (stage === 'EXW') {
+      const otherLayer = layers.find(l => l.stage === null);
+      if (otherLayer && otherLayer.items.length > 0) stageLayers.push(otherLayer);
+    }
+
+    let stageTotal = 0;
+
+    stageLayers.forEach(layer => {
+      if (layer.items.length === 0) return;
+
+      const layerRow = document.createElement('tr');
+      layerRow.className = 'layer-title';
+      const yieldNote = layer.applies_yield && ey < 1
+        ? ` (÷ ${(ey * 100).toFixed(1)}% rdto → ×${(1/ey).toFixed(2)})`
+        : '';
+      layerRow.innerHTML = `<td colspan="6">${layer.name}${yieldNote}</td>`;
+      tbody.appendChild(layerRow);
+
+      let layerTotal = 0;
+      layer.items.forEach(item => {
+        const tr = document.createElement('tr');
+        const unitLabel = COST_UNITS.find(u => u.id === item.variable_unit)?.label ?? item.variable_unit;
+        const cur = item.currency === 'ARS' ? 'ARS $' : 'USD';
+        const curBadge = `<span style="font-size:8pt;font-weight:700;padding:1px 4px;border-radius:3px;background:${item.currency === 'ARS' ? '#fef3cd' : '#dce9f0'};color:${item.currency === 'ARS' ? '#7c5a00' : '#365A6E'}">${cur}</span>`;
+        tr.innerHTML = `
+          <td>${item.name || '—'}</td>
+          <td>${item.source === 'table' ? 'Tabla' : 'Manual'} ${curBadge}</td>
+          <td class="num">${(item.variable_value ?? 0).toFixed(2)} ${unitLabel}</td>
+          <td class="num">${item.fixed_per_shipment ? (item.currency === 'ARS' ? 'ARS $' : '$') + item.fixed_per_shipment.toFixed(2) : '—'}</td>
+          <td class="num">${item.fixed_per_quote ? (item.currency === 'ARS' ? 'ARS $' : '$') + item.fixed_per_quote.toFixed(2) : '—'}</td>
+          <td class="num">$${(item.cost_per_kg_calc ?? 0).toFixed(4)}</td>
+        `;
+        tbody.appendChild(tr);
+        layerTotal += item.cost_per_kg_calc ?? 0;
+      });
+
+      if (layer.items.length > 1) {
+        const subRow = document.createElement('tr');
+        subRow.className = 'subtotal';
+        subRow.innerHTML = `<td colspan="5">Subtotal ${layer.name}</td><td class="num">$${layerTotal.toFixed(4)}</td>`;
+        tbody.appendChild(subRow);
+      }
+      stageTotal += layerTotal;
     });
 
-    if (layer.items.length > 1) {
-      const subRow = document.createElement('tr');
-      subRow.className = 'subtotal';
-      subRow.innerHTML = `<td colspan="5">Subtotal ${layer.name}</td><td class="num">$${layerTotal.toFixed(4)}</td>`;
-      tbody.appendChild(subRow);
+    accumulated += stageTotal;
+
+    // Subtotal acumulado del stage
+    if (stageTotal > 0) {
+      const stageSubRow = document.createElement('tr');
+      stageSubRow.className = 'subtotal stage-subtotal-row';
+      const totalAmt = pdfHasVol ? ` (${pdfFmt(accumulated * pdfVol)})` : '';
+      stageSubRow.innerHTML = `<td colspan="5"><strong>${stage}</strong> — $${(accumulated / 2.20462).toFixed(2)}/lb${totalAmt}</td><td class="num"><strong>$${accumulated.toFixed(4)}/kg</strong></td>`;
+      tbody.appendChild(stageSubRow);
     }
   });
 
   // Comisión row
-  if (commission.pct > 0 || commission.fixed_per_shipment || commission.fixed_per_quote) {
+  if (commission.pct > 0 || commission.fixed_per_kg > 0 || commission.fixed_per_shipment > 0) {
     const commRow = document.createElement('tr');
     commRow.className = 'layer-title';
-    const commBaseLabel = commission.base === 'plant_exit' ? 'precio salida de planta' : commission.base === 'cost' ? 'costo total' : 'precio final venta';
-    commRow.innerHTML = `<td colspan="6">Comisión comercial (${commission.pct}% sobre ${commBaseLabel})</td>`;
+    const parts = [];
+    if (commission.pct > 0) {
+      const commBaseLabel = commission.base === 'plant_exit' ? 'salida planta' : commission.base === 'cost' ? 'costo total' : 'precio final';
+      parts.push(`${commission.pct}% s/${commBaseLabel}`);
+    }
+    if (commission.fixed_per_kg > 0) parts.push(`$${commission.fixed_per_kg}/kg`);
+    if (commission.fixed_per_shipment > 0) parts.push(`$${commission.fixed_per_shipment}/embarque`);
+    commRow.innerHTML = `<td colspan="6">Comisión comercial (${parts.join(' + ')})</td>`;
     tbody.appendChild(commRow);
   }
 
-  // Resumen de costos (breakdown por capa)
+  // Resumen de costos (breakdown por stage)
   const breakdownEl = document.getElementById('pdf-cost-breakdown');
   if (breakdownEl && calc) {
     const { totalCostPerKg, commPerKg, pricePerKg, pricePerLb, marginPct } = calc;
-    const effectiveYield = computeEffectiveYield();
-    const mpTotal   = layers.find(l => l.id === 'raw_material')?.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0) ?? 0;
-    const procTotal = layers.find(l => l.id === 'processing')?.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0) ?? 0;
-    const productionSubtotal = mpTotal + procTotal;
+    const fmtLb = (perKg) => (perKg / 2.20462).toFixed(2);
 
-    // Totales en $ para PDF interno
-    const pdfVol    = parseNum(document.getElementById('volume-kg').value) || 0;
-    const pdfHasVol = pdfVol > 0;
-    const pdfMpRaw  = pdfHasVol ? mpTotal * effectiveYield * pdfVol : 0;
-    const pdfMpAdj  = pdfHasVol ? mpTotal * pdfVol : 0;
-    const pdfProc   = pdfHasVol ? procTotal * pdfVol : 0;
-    const pdfMerc   = pdfMpAdj + pdfProc;
-    const pdfFmt = (v) => '$' + Math.round(v).toLocaleString('es-AR');
-    const pdfTotalSpan = (v) => `<span style="font-size:6.5pt;opacity:.65"> (${pdfFmt(v)})</span>`;
+    let html = '<div class="pdf-cost-breakdown-title">Resumen por Incoterm</div>';
+    let accum = 0;
 
-    let html = '<div class="pdf-cost-breakdown-title">Resumen por capa</div>';
-
-    layers.forEach(l => {
-      if (l.items.length === 0) return;
-      const layerTotal = l.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0);
-
-      if (l.id === 'raw_material' && mpTotal > 0 && effectiveYield < 1) {
-        const mpRaw = mpTotal * effectiveYield;
-        html += `<div class="pdf-breakdown-row">
-          <span class="bd-label">Materia Prima <em style="opacity:.65;font-size:7pt">($${mpRaw.toFixed(3)} ÷ ${(effectiveYield * 100).toFixed(1)}%)</em></span>
-          <span class="bd-val">$${mpTotal.toFixed(3)}/kg${pdfHasVol ? ` <span style="font-size:6.5pt;opacity:.65">(${pdfFmt(pdfMpRaw)} → ${pdfFmt(pdfMpAdj)})</span>` : ''}</span>
-        </div>`;
-      } else {
-        const showPdfTotal = (l.id === 'raw_material' || l.id === 'processing') && pdfHasVol && layerTotal > 0;
-        const pdfLayerAmt = l.id === 'processing' ? pdfProc : (pdfHasVol ? layerTotal * pdfVol : 0);
-        html += `<div class="pdf-breakdown-row"><span class="bd-label">${l.name}</span><span class="bd-val">$${layerTotal.toFixed(3)}/kg${showPdfTotal ? pdfTotalSpan(pdfLayerAmt) : ''}</span></div>`;
+    stageOrder.forEach(stage => {
+      if (!visibleStages.includes(stage)) return;
+      const sLayers = layers.filter(l => l.stage === stage);
+      if (stage === 'EXW') {
+        const otherL = layers.find(l => l.stage === null);
+        if (otherL) sLayers.push(otherL);
       }
 
-      if (l.id === 'processing' && (mpTotal > 0 || procTotal > 0)) {
-        html += `<div class="pdf-breakdown-row production-subtotal-pdf"><span class="bd-label">↳ Costo Mercadería+MO</span><span class="bd-val">$${productionSubtotal.toFixed(3)}/kg${pdfHasVol ? pdfTotalSpan(pdfMerc) : ''}</span></div>`;
+      sLayers.forEach(l => {
+        if (l.items.length === 0) return;
+        const lt = l.items.reduce((s, i) => s + (i.cost_per_kg_calc ?? 0), 0);
+        html += `<div class="pdf-breakdown-row"><span class="bd-label">${l.name}</span><span class="bd-val">$${lt.toFixed(3)}/kg</span></div>`;
+        accum += lt;
+      });
+
+      if (accum > 0) {
+        const totalAmt = pdfHasVol ? ` <span style="font-size:6.5pt;opacity:.65">(${pdfFmt(accum * pdfVol)})</span>` : '';
+        html += `<div class="pdf-breakdown-row stage-subtotal-pdf"><span class="bd-label"><strong>${stage}</strong></span><span class="bd-val"><strong>$${accum.toFixed(3)}/kg</strong> · $${fmtLb(accum)}/lb${totalAmt}</span></div>`;
       }
     });
 
     if (commPerKg > 0) {
-      const bLabel = commission.base === 'plant_exit' ? 'salida planta' : commission.base === 'cost' ? 'costo' : 'precio final';
-      html += `<div class="pdf-breakdown-row"><span class="bd-label">Comisión (${commission.pct}% s/${bLabel})</span><span class="bd-val">$${commPerKg.toFixed(3)}/kg</span></div>`;
+      const parts = [];
+      if (commission.pct > 0) {
+        const bLabel = commission.base === 'plant_exit' ? 'salida planta' : commission.base === 'cost' ? 'costo' : 'precio final';
+        parts.push(`${commission.pct}% s/${bLabel}`);
+      }
+      if (commission.fixed_per_kg > 0) parts.push(`$${commission.fixed_per_kg}/kg`);
+      if (commission.fixed_per_shipment > 0) parts.push(`$${commission.fixed_per_shipment}/emb`);
+      html += `<div class="pdf-breakdown-row"><span class="bd-label">Comisión (${parts.join(' + ')})</span><span class="bd-val">$${commPerKg.toFixed(3)}/kg</span></div>`;
     }
 
     const marginAmount = pricePerKg - totalCostPerKg - commPerKg;
@@ -1636,7 +1761,7 @@ function buildInternalTable(calc = null) {
 
     const usdArsRatePdf = parseNum(document.getElementById('usd-ars-rate').value) || 0;
     if (hasArsItems() && usdArsRatePdf > 0) {
-      html += `<div class="pdf-breakdown-row" style="margin-top:2mm;border-top:1px solid #e5e3e0;padding-top:2mm;color:#7c5a00;font-size:7pt"><span class="bd-label">💱 Tipo de cambio ARS/USD</span><span class="bd-val">$${usdArsRatePdf.toLocaleString('es-AR')}/USD</span></div>`;
+      html += `<div class="pdf-breakdown-row" style="margin-top:2mm;border-top:1px solid #e5e3e0;padding-top:2mm;color:#7c5a00;font-size:7pt"><span class="bd-label">TC ARS/USD</span><span class="bd-val">$${usdArsRatePdf.toLocaleString('es-AR')}/USD</span></div>`;
     }
 
     breakdownEl.innerHTML = html;
